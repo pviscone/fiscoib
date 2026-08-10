@@ -1,0 +1,2 @@
+symbol,asset,long,qty,valuta,apertura,chiusura,corrispettivo_eur,costo_eur,commissioni_eur,plus_minus_eur,cambio_apertura,cambio_chiusura
+AAPL,STK,True,100,USD,2024-01-15,2024-06-20,20524.30,16449.56,3.69,4074.74,1.0945,1.0719

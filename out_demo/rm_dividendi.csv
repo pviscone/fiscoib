@@ -1,0 +1,2 @@
+symbol,stato,pay_date,valuta,lordo_ccy,ritenuta_ccy,cambio,lordo_eur,ritenuta_eur,base_imponibile_eur,imposta_eur,credito_teorico_eur
+AAPL,US,2024-11-16,USD,100.00,15.00,1.0583,94.49,14.17,94.49,24.57,14.17

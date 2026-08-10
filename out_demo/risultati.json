@@ -1,0 +1,135 @@
+{
+  "anno": 2024,
+  "conto": "U1234567",
+  "config": {
+    "frontiera": "lordo",
+    "ivafe_cfd": false,
+    "ivafe_otc": false,
+    "cfd_dividend_adjustment": "RT",
+    "pil_treatment": "RM"
+  },
+  "RT": {
+    "rt21_corrispettivi": 20524.3,
+    "rt22_costi": 16449.56,
+    "rt23_differenza": 4074.74,
+    "minus_pregresse_usate": 0.0,
+    "rt26_imponibile": 4074.74,
+    "rt27_imposta": 1059.43,
+    "minus_anno": 0.0,
+    "minus_da_riportare": {},
+    "dettaglio": [
+      {
+        "symbol": "AAPL",
+        "asset_category": "STK",
+        "is_long": true,
+        "qty": 100.0,
+        "currency": "USD",
+        "open_date": "2024-01-15",
+        "close_date": "2024-06-20",
+        "corrispettivo_eur": 20524.3,
+        "costo_eur": 16449.56,
+        "commissioni_eur": 3.69,
+        "plus_minus_eur": 4074.74,
+        "rate_open": 1.0945,
+        "rate_close": 1.0719
+      }
+    ]
+  },
+  "RM": {
+    "tot_base_dividendi": 94.49,
+    "tot_imposta_dividendi": 24.57,
+    "tot_base_interessi": 18.9,
+    "tot_imposta_interessi": 4.91,
+    "tot_wht_estera_eur": 14.17,
+    "tot_credito_teorico_eur": 14.17,
+    "dividendi": [
+      {
+        "symbol": "AAPL",
+        "country": "US",
+        "pay_date": "2024-11-16",
+        "currency": "USD",
+        "gross_ccy": 100.0,
+        "wht_ccy": 15.0,
+        "rate": 1.0583,
+        "gross_eur": 94.49,
+        "wht_eur": 14.17,
+        "base_imponibile_eur": 94.49,
+        "imposta_eur": 24.57,
+        "credito_teorico_eur": 14.17,
+        "codice_reddito": "H"
+      }
+    ],
+    "interessi": [
+      {
+        "description": "USD CREDIT INTEREST FOR NOV-2024",
+        "country": "IE",
+        "when": "2024-11-16",
+        "currency": "USD",
+        "amount_ccy": 20.0,
+        "rate": 1.0583,
+        "base_eur": 18.9,
+        "imposta_eur": 4.91,
+        "codice_reddito": "G"
+      }
+    ]
+  },
+  "RW": {
+    "tot_valore_finale_eur": 24348,
+    "tot_ivafe_eur": 65.14,
+    "righi": [
+      {
+        "descrizione": "AAPL",
+        "codice_bene": "20",
+        "stato_estero": "IE",
+        "codice_valorizzazione": "1",
+        "valore_iniziale_eur": 16506,
+        "valore_finale_eur": 0,
+        "giorni": 158,
+        "quota_pct": 100.0,
+        "ivafe_applicata": true,
+        "ivafe_aliquota": 0.002,
+        "ivafe_eur": 17.7,
+        "solo_monitoraggio": false,
+        "note": ""
+      },
+      {
+        "descrizione": "MSFT",
+        "codice_bene": "20",
+        "stato_estero": "IE",
+        "codice_valorizzazione": "1",
+        "valore_iniziale_eur": 13755,
+        "valore_finale_eur": 17654,
+        "giorni": 352,
+        "quota_pct": 100.0,
+        "ivafe_applicata": true,
+        "ivafe_aliquota": 0.002,
+        "ivafe_eur": 34.05,
+        "solo_monitoraggio": false,
+        "note": ""
+      },
+      {
+        "descrizione": "Liquidità USD",
+        "codice_bene": "20",
+        "stato_estero": "IE",
+        "codice_valorizzazione": "1",
+        "valore_iniziale_eur": 9170,
+        "valore_finale_eur": 6694,
+        "giorni": 365,
+        "quota_pct": 100.0,
+        "ivafe_applicata": true,
+        "ivafe_aliquota": 0.002,
+        "ivafe_eur": 13.39,
+        "solo_monitoraggio": false,
+        "note": "Liquidità del conto deposito titoli"
+      }
+    ]
+  },
+  "totale_imposte": 1154.05,
+  "warnings": [
+    {
+      "level": "WARN",
+      "code": "FRONTIERA",
+      "message": "Dividendi tassati al LORDO frontiera (posizione AdE). Ritenute estere per € 14.17 non scomputate: credito teorico € 14.17 recuperabile solo con istanza di rimborso (esito incerto)."
+    }
+  ]
+}

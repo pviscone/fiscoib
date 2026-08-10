@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FlexQueryResponse queryName="FiscoITA" type="AF">
+  <FlexStatements count="1">
+    <FlexStatement accountId="U1234567" fromDate="20240101" toDate="20241231">
+      <AccountInformation accountId="U1234567" currency="EUR" />
+
+      <Trades>
+        <Trade accountId="U1234567" currency="USD" fxRateToBase="0.92"
+          assetCategory="STK" symbol="AAPL" isin="US0378331005" conid="265598"
+          listingExchange="NASDAQ" transactionID="T1" tradeID="T1" tradeDate="20240115"
+          dateTime="20240115;154000" buySell="BUY" openCloseIndicator="O"
+          quantity="100" tradePrice="180.00" proceeds="-18000.00"
+          ibCommission="-2.00" ibCommissionCurrency="USD" taxes="0" netCash="-18002.00"
+          fifoPnlRealized="0" />
+        <Trade accountId="U1234567" currency="USD" fxRateToBase="0.935"
+          assetCategory="STK" symbol="AAPL" isin="US0378331005" conid="265598"
+          listingExchange="NASDAQ" transactionID="T2" tradeID="T2" tradeDate="20240620"
+          dateTime="20240620;152000" buySell="SELL" openCloseIndicator="C"
+          quantity="100" tradePrice="220.00" proceeds="22000.00"
+          ibCommission="-2.00" ibCommissionCurrency="USD" taxes="0" netCash="21998.00"
+          fifoPnlRealized="3998.00" />
+        <Trade accountId="U1234567" currency="USD" fxRateToBase="0.92"
+          assetCategory="STK" symbol="MSFT" isin="US5949181045" conid="272093"
+          listingExchange="NASDAQ" transactionID="T3" tradeID="T3" tradeDate="20240115"
+          dateTime="20240115;160000" buySell="BUY" openCloseIndicator="O"
+          quantity="50" tradePrice="300.00" proceeds="-15000.00"
+          ibCommission="-1.50" ibCommissionCurrency="USD" taxes="0" netCash="-15001.50"
+          fifoPnlRealized="0" />
+      </Trades>
+
+      <CashTransactions>
+        <CashTransaction accountId="U1234567" currency="USD" fxRateToBase="0.926"
+          assetCategory="STK" symbol="AAPL" isin="US0378331005" conid="265598"
+          description="AAPL(US0378331005) CASH DIVIDEND USD 1.00 PER SHARE"
+          dateTime="20241116;200000" settleDate="20241116"
+          amount="100.00" type="Dividends" transactionID="C1" />
+        <CashTransaction accountId="U1234567" currency="USD" fxRateToBase="0.926"
+          assetCategory="STK" symbol="AAPL" isin="US0378331005" conid="265598"
+          description="AAPL(US0378331005) CASH DIVIDEND USD 1.00 PER SHARE - US TAX"
+          dateTime="20241116;200000" settleDate="20241116"
+          amount="-15.00" type="Withholding Tax" transactionID="C2" />
+        <CashTransaction accountId="U1234567" currency="USD" fxRateToBase="0.926"
+          description="USD CREDIT INTEREST FOR NOV-2024"
+          dateTime="20241116;200000" settleDate="20241116"
+          amount="20.00" type="Broker Interest Received" transactionID="C3" />
+      </CashTransactions>
+
+      <OpenPositions>
+        <OpenPosition accountId="U1234567" currency="USD" fxRateToBase="0.9546"
+          assetCategory="STK" symbol="MSFT" isin="US5949181045" conid="272093"
+          listingExchange="NASDAQ" reportDate="20241231" levelOfDetail="SUMMARY"
+          position="50" multiplier="1" markPrice="370.00" positionValue="18500.00"
+          openPrice="300.00" costBasisPrice="300.03" costBasisMoney="15001.50"
+          fifoPnlUnrealized="3498.50" side="Long" />
+      </OpenPositions>
+
+      <CashReport>
+        <CashReportCurrency accountId="U1234567" currency="USD"
+          fromDate="20240101" toDate="20241231"
+          startingCash="10000.00" endingCash="7014.50" endingSettledCash="7014.50" />
+        <CashReportCurrency accountId="U1234567" currency="BASE_SUMMARY"
+          fromDate="20240101" toDate="20241231"
+          startingCash="9200.00" endingCash="6500.00" endingSettledCash="6500.00" />
+      </CashReport>
+
+      <CorporateActions/>
+    </FlexStatement>
+  </FlexStatements>
+</FlexQueryResponse>

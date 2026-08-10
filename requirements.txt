@@ -1,0 +1,6 @@
+# Dipendenze runtime di fiscoib
+requests>=2.30      # download cambi ufficiali Banca d'Italia
+openpyxl>=3.1       # report Excel
+reportlab>=4.0      # report PDF
+# Solo per i test
+pytest>=8.0
