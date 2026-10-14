@@ -1,4 +1,4 @@
-descrizione,codice_bene,stato,cod_valorizzazione,valore_iniziale_eur,valore_finale_eur,giorni,quota_pct,ivafe_applicata,ivafe_aliquota,ivafe_eur,solo_monitoraggio
-AAPL,20,IE,1,16506,0,158,100,True,0.002,17.70,False
-MSFT,20,IE,1,13755,17654,352,100,True,0.002,34.05,False
-Liquidità USD,20,IE,1,9170,6694,365,100,True,0.002,13.39,False
+descrizione,codice_bene,stato,stato_estero_ade,cod_valorizzazione,valore_iniziale_eur,valore_finale_eur,giorni,quota_pct,ivafe_applicata,ivafe_aliquota,ivafe_eur,solo_monitoraggio
+AAPL,20,IE,040,1,16506,0,158,100,True,0.002,17.70,False
+MSFT,20,IE,040,1,13755,17654,352,100,True,0.002,34.05,False
+Liquidità USD,20,IE,040,3,9170,6694,365,100,True,0.002,13.39,False

@@ -55,6 +55,18 @@ class Instrument:
         return self.asset_category == STOCK
 
     @property
+    def is_fund(self) -> bool:
+        """Quota di OICR/ETF estero.
+
+        Euristica: ``subCategory`` IBKR == 'ETF' oppure ``assetCategory`` in
+        FUND/ETF/MUTUAL FUND. Le quote OICR producono redditi di capitale
+        (art. 44 c.1 lett. g TUIR), non plusvalenze da redditi diversi.
+        """
+        if (self.sub_category or "").strip().upper() == "ETF":
+            return True
+        return (self.asset_category or "").strip().upper() in {"FUND", "ETF", "MUTUAL FUND"}
+
+    @property
     def is_otc(self) -> bool:
         """Azione trattata OTC / non su mercato regolamentato.
 
@@ -158,7 +170,10 @@ class CorporateAction:
     instrument: Instrument
     transaction_id: str
     when: date
-    ca_type: str        # TC, FS, RS, SSO, SD, IC, ...
+    # Codici ufficiali IBKR: OR,BC,BM,CD,HD,HI,CC,CA,CO,CS,CI,CP,DW,DI,ED,
+    # FA,FS,GV,IC,FI,TC,PC,RS,PI,SO,SD,RI,SR,TM,TI,UE,TO.
+    # Rilevanti qui: TC=merger, SO=spin-off, FS/RS=forward/reverse split.
+    ca_type: str
     description: str
     quantity: Decimal   # variazione di quantità (con segno)
     value: Decimal

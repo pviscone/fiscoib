@@ -13,8 +13,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from .config import FiscoConfig
 from .fx.ade_overrides import builtin_overrides
@@ -22,6 +23,33 @@ from .fx.rates import RatesProvider
 from .pipeline import run
 from .reports import quadri_facsimile, raw_export, excel_report, pdf_summary
 from .warnings import CRITICAL, WARN
+
+
+def _stato(value: str) -> str:
+    """Codice stato estero ISO-3166 alpha-2 (es. IE, US)."""
+    v = value.strip().upper()
+    if not re.fullmatch(r"[A-Z]{2}", v):
+        raise argparse.ArgumentTypeError(
+            f"codice stato non valido: {value!r}. Atteso il codice ISO alpha-2 "
+            f"(es. 'IE' per l'Irlanda, 'US' per gli Stati Uniti)."
+        )
+    return v
+
+
+def _quota(value: str) -> Decimal:
+    """Quota di possesso percentuale: deve essere (0, 100]."""
+    try:
+        q = Decimal(value.replace(",", "."))
+    except InvalidOperation:
+        raise argparse.ArgumentTypeError(
+            f"quota non valida: {value!r}. Atteso un numero (es. 100, 50, 33.33)."
+        )
+    if not (Decimal("0") < q <= Decimal("100")):
+        raise argparse.ArgumentTypeError(
+            f"quota non valida: {value!r}. Atteso un numero maggiore di 0 e "
+            f"minore o uguale a 100 (percentuale di possesso)."
+        )
+    return q
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -33,10 +61,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--anno", "--year", type=int, required=True, dest="anno",
                    help="Anno d'imposta (es. 2025).")
     p.add_argument("--out", default="./out", help="Cartella di output (default ./out).")
-    p.add_argument("--stato", default="IE",
-                   help="Codice stato estero del conto per il Quadro RW (IE o US).")
-    p.add_argument("--quota", type=str, default="100",
-                   help="Quota di possesso %% (default 100).")
+    p.add_argument("--stato", type=_stato, default="IE",
+                   help="Codice stato estero ISO alpha-2 del conto per il Quadro RW "
+                        "(es. IE, US).")
+    p.add_argument("--quota", type=_quota, default=Decimal("100"), metavar="PERC",
+                   help="Quota di possesso %% (default 100; 0 < quota <= 100).")
     p.add_argument("--frontiera", choices=["lordo", "netto"], default="lordo",
                    help="Base imponibile dividendi (default 'lordo', posizione AdE).")
     p.add_argument("--ivafe-cfd", action="store_true",
@@ -57,6 +86,9 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="Non usare la tabella cambi AdE integrata.")
     p.add_argument("--prior-losses", default=None,
                    help="File JSON {anno: importo} di minusvalenze pregresse riportabili.")
+    p.add_argument("--gov-bonds", default=None, metavar="PATH.json",
+                   help="File JSON con la lista di ISIN/simboli di titoli di Stato "
+                        "(whitelist BTP & simili, tassati al 12,5%% nel Quadro RM).")
     return p
 
 
@@ -73,8 +105,8 @@ def main(argv=None) -> int:
 
     config = FiscoConfig(
         tax_year=args.anno,
-        account_country=args.stato.upper(),
-        ownership_pct=Decimal(args.quota),
+        account_country=args.stato,
+        ownership_pct=args.quota,
         frontiera=args.frontiera,
         ivafe_cfd=args.ivafe_cfd,
         ivafe_otc=args.ivafe_otc,
@@ -83,15 +115,67 @@ def main(argv=None) -> int:
     )
 
     prior_losses = None
-    if args.prior_losses and os.path.exists(args.prior_losses):
+    if args.prior_losses:
+        if not os.path.exists(args.prior_losses):
+            print(
+                f"ERRORE: file minusvalenze pregresse non trovato: {args.prior_losses}.\n"
+                f"Le minusvalenze NON possono essere ignorate in silenzio: correggere "
+                f"il percorso o rimuovere l'opzione --prior-losses.",
+                file=sys.stderr,
+            )
+            return 2
         with open(args.prior_losses, encoding="utf-8") as fh:
             prior_losses = {int(y): Decimal(str(v)) for y, v in json.load(fh).items()}
 
+    gov_bonds = None
+    if args.gov_bonds:
+        if not os.path.exists(args.gov_bonds):
+            print(
+                f"ERRORE: file titoli di Stato non trovato: {args.gov_bonds}.\n"
+                f"Correggere il percorso o rimuovere l'opzione --gov-bonds: senza la "
+                f"lista gli interessi di titoli di Stato sarebbero tassati al 26%.",
+                file=sys.stderr,
+            )
+            return 2
+        with open(args.gov_bonds, encoding="utf-8") as fh:
+            data = json.load(fh)
+        if not isinstance(data, list):
+            print(
+                f"ERRORE: {args.gov_bonds} deve contenere una lista JSON di "
+                f"ISIN/simboli (es. [\"IT0005425233\", \"BTP\"]).",
+                file=sys.stderr,
+            )
+            return 2
+        gov_bonds = {str(x).strip() for x in data}
+
     try:
-        results = run(args.input, config, rates, prior_losses=prior_losses)
+        results = run(args.input, config, rates, prior_losses=prior_losses,
+                      gov_bonds=gov_bonds)
     except Exception as exc:  # noqa: BLE001
         print(f"ERRORE: {exc}", file=sys.stderr)
         return 2
+
+    # Coerenza anno/statement: anno fuori range o zero eventi → report incompleto.
+    stmt = results.statement
+    if stmt.from_date and stmt.to_date:
+        if args.anno < stmt.from_date.year or args.anno > stmt.to_date.year:
+            print(
+                f"ATTENZIONE: --anno {args.anno} fuori dal range dello statement "
+                f"({stmt.from_date} – {stmt.to_date}): report probabilmente incompleto.",
+                file=sys.stderr,
+            )
+    n_eventi_anno = sum(
+        1 for ev in list(stmt.trades) + list(stmt.cash_transactions)
+        if (getattr(ev, "trade_date", None) or getattr(ev, "when", None))
+        and (getattr(ev, "trade_date", None) or getattr(ev, "when")).year == args.anno
+    )
+    if n_eventi_anno == 0:
+        print(
+            f"ATTENZIONE: zero eventi (trades/movimenti) nell'anno {args.anno}: "
+            f"report probabilmente incompleto — verificare di aver esportato "
+            f"l'intero periodo da IBKR.",
+            file=sys.stderr,
+        )
 
     # Output.
     facsimile_txt = quadri_facsimile.render(results)

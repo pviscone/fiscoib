@@ -26,6 +26,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 
+from ..ade_tables import iso2_to_ade
 from ..config import FiscoConfig
 from ..money import ZERO, dec, q2, euro_int
 from ..fx.rates import RatesProvider
@@ -41,8 +42,9 @@ COD_DERIVATO = "9"
 class RWRow:
     descrizione: str
     codice_bene: str
-    stato_estero: str
-    codice_valorizzazione: str        # 1=mercato, 2=nominale, 3=costo
+    stato_estero: str                 # ISO-3166 alpha-2 (es. "US")
+    stato_estero_ade: str             # codice AdE a 3 cifre (es. "069"); fallback ISO
+    codice_valorizzazione: str        # 1=mercato, 3=nominale (liquidità)
     valore_iniziale_eur: int
     valore_finale_eur: int
     giorni: int
@@ -60,11 +62,29 @@ class RWResult:
     rows: List[RWRow] = field(default_factory=list)
     tot_valore_finale_eur: int = 0
     tot_ivafe_eur: Decimal = ZERO
+    account_is_blacklist: bool = False
 
     def sanzione_potenziale(self) -> Tuple[Decimal, Decimal]:
-        """Stima min/max sanzione per omessa dichiarazione RW (3%-15% white list)."""
+        """Stima min/max sanzione omesso RW: 3%-15%, raddoppiata (6%-30%) se il
+        conto è in Paese black list (art. 5 c.2 D.Lgs. 167/90)."""
         base = dec(self.tot_valore_finale_eur)
+        if self.account_is_blacklist:
+            return q2(base * Decimal("0.06")), q2(base * Decimal("0.30"))
         return q2(base * Decimal("0.03")), q2(base * Decimal("0.15"))
+
+    @property
+    def ivafe_non_dovuta(self) -> bool:
+        """IVAFE complessiva ≤ 200€: versamento non dovuto (art. 19 c.20 DL 201/2011,
+        come modificato dall'art. 13-bis DL 34/2014). Il monitoraggio RW resta
+        comunque obbligatorio."""
+        return ZERO < self.tot_ivafe_eur <= Decimal("200")
+
+    @property
+    def ivafe_da_versare(self) -> Decimal:
+        """IVAFE effettivamente da versare (0 se ≤ 200€)."""
+        if self.ivafe_non_dovuta:
+            return ZERO
+        return self.tot_ivafe_eur
 
 
 def _year_bounds(year: int) -> Tuple[date, date]:
@@ -167,8 +187,21 @@ def compute_rw(
 ) -> RWResult:
     warnings = warnings or WarningCollector()
     res = RWResult(tax_year=config.tax_year)
+    res.account_is_blacklist = bool(config.account_is_blacklist)
     year = config.tax_year
     _, ye = _year_bounds(year)
+
+    # Codice numerico AdE (Tabella 10) per la colonna "stato estero" del rigo RW.
+    stato_estero = (config.account_country or "").upper()
+    stato_estero_ade = iso2_to_ade(stato_estero)
+    if stato_estero_ade is None:
+        warnings.warn(
+            "ADE_STATO_IGNOTO",
+            f"Codice stato '{stato_estero}' non presente nella tabella AdE "
+            f"(Tabella 10): nella colonna 'Stato estero' verrà riportato il codice "
+            f"ISO '{stato_estero}'. Verificare con l'elenco AdE ufficiale.",
+        )
+        stato_estero_ade = stato_estero
 
     aliquota = (
         config.ivafe_rate_blacklist
@@ -304,7 +337,8 @@ def compute_rw(
             RWRow(
                 descrizione=f"{inst.symbol} - {inst.description}".strip(" -"),
                 codice_bene=_codice_bene(inst),
-                stato_estero=config.account_country,
+                stato_estero=stato_estero,
+                stato_estero_ade=stato_estero_ade,
                 codice_valorizzazione=cod_val,
                 valore_iniziale_eur=euro_int(valore_ini_eur),
                 valore_finale_eur=euro_int(valore_finale_col),
@@ -336,8 +370,10 @@ def compute_rw(
             RWRow(
                 descrizione=f"Liquidità {row.currency}",
                 codice_bene=COD_DEPOSITO,
-                stato_estero=config.account_country,
-                codice_valorizzazione="1",
+                stato_estero=stato_estero,
+                stato_estero_ade=stato_estero_ade,
+                # Liquidità: codice valorizzazione 3 (valore nominale).
+                codice_valorizzazione="3",
                 valore_iniziale_eur=euro_int(
                     rates.to_eur_monthly(abs(dec(row.starting_cash)), row.currency, year, 1)
                     if row.starting_cash

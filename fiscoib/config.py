@@ -45,5 +45,9 @@ class FiscoConfig:
     # Paesi a fiscalità privilegiata (black list) — IE/US NON inclusi.
     blacklist_countries: Set[str] = field(default_factory=set)
 
+    # Conto estero situato in Paese black list: sanzioni RW raddoppiate
+    # (6%-30% anziché 3%-15%, art. 5 c.2 D.Lgs. 167/90).
+    account_is_blacklist: bool = False
+
     def is_blacklist(self, country: str) -> bool:
         return (country or "").upper() in self.blacklist_countries

@@ -98,9 +98,25 @@ Costi        (RT22) = prezzo di acquisto + TUTTE le commissioni (acquisto + vend
 Plus/minus          = RT21 − RT22
 ```
 
-Le commissioni sono interamente deducibili (Interpello AdE 344/2020). Gli **interessi
+Le commissioni sono interamente deducibili (art. 68 c. 6 TUIR: il costo di acquisto è
+assunto al lordo di ogni onere accessorio di diretta imputazione). Gli **interessi
 passivi / di margine NON sono deducibili** e non entrano nel calcolo (per una persona
 fisica).
+
+**Attenzione — ETF e fondi (quote OICR): regole diverse.** Per le quote di ETF/fondi
+esteri **non** vale il LIFO e **non** valgono le compensazioni quadro RT:
+
+- il calcolo dei lotti usa il **costo medio ponderato** (lo strumento lo tratta in
+  automatico: categoria `ETF`/`FUND` nel Flex);
+- la **plusvalenza** da cessione di quote OICR è un **reddito di capitale** (art. 44
+  c.1 lett. g TUIR): non è compensabile con nessuna minusvalenza e va dichiarata tra i
+  redditi di capitale (il software la espone separatamente, come componente
+  `oicr_gains`, lettera H, aliquota 26%);
+- la **minusvalenza** da quote OICR è invece un reddito **diverso**: resta nel Quadro
+  RT e compensa solo plus/minus di natura diversi.
+
+Lo scorporo avviene automaticamente: il Quadro RT prodotto riguarda solo i redditi
+diversi (azioni, CFD ecc.) e non include le plus OICR.
 
 Sul **saldo annuo** di tutte le chiusure:
 - se è **positivo**, si sottraggono le eventuali **minusvalenze pregresse** (utilizzabili
@@ -119,7 +135,10 @@ Imposta 26%                = 75,40 €
 ```
 
 **Riferimenti:** artt. 67–68 TUIR; LIFO art. 67 c.1-bis TUIR; deducibilità commissioni
-Interpello AdE 344/2020.
+art. 68 c. 6 TUIR. Per le plusvalenze in valuta estera (cambio da applicare a ogni
+singola operazione) v. Risposta AdE a interpello n. 344 del 2020, che riguarda proprio
+la cessione di partecipazioni in valuta estera — non citarla a sostegno della
+deducibilità delle commissioni, che discende direttamente dall'art. 68.
 
 ### Quadro RM — dividendi e interessi
 
@@ -151,19 +170,36 @@ Credito estero teorico = 15 €       (solo informativo, non scomputato)
 
 Con il metodo **netto frontiera** la base sarebbe 100 − 15 = 85 € e l'imposta 22,10 €.
 
-Gli **interessi attivi** (su liquidità, codice G; cedole obbligazionarie, codice I) si
-tassano al 26% allo stesso modo. Gli **interessi passivi / di margine non sono
-deducibili** e vengono ignorati con una nota.
+Gli **interessi attivi** (su liquidità, codice G; cedole obbligazionarie corporate,
+codice I) si tassano al 26% allo stesso modo. Le **cedole di titoli di Stato italiani
+ed esteri in white list** e di organismi internazionali sovranazionali si tassano invece
+al **12,50%** (codice A): lo script li riconosce se fornisci l'elenco ISIN/simboli con
+`--gov-bonds` (senza elenco segnala un warning per ogni emittente obbligazionario).
+Gli **interessi passivi / di margine non sono deducibili** e vengono ignorati con una
+nota.
+
+**Riga/lettere usate:** rigo RM31 della Sezione II-A del Redditi PF (lettere: A, C, G,
+H, I). Se compili il **Modello 730**, lo stesso contenuto va nel **Quadro M, rigo
+M31** (stesse lettere e colonne).
 
 **Riferimenti:** art. 18 e art. 44 TUIR (redditi di capitale); art. 165 TUIR (credito
-d'imposta estero); Interpello AdE 111/2020 (lordo frontiera).
+d'imposta estero); base imponibile lordo frontiera: istruzioni rigo RM31 col. 3
+("al lordo di eventuali ritenute subite nello Stato estero") e Risposta AdE n.
+111/2020. Per il credito d'imposta estero la posizione AdE esclude lo scomputo in
+imposta sostitutiva, ma la giurisprudenza di legittimità (Cass. n. 25698/2022 e Cass.
+n. 10204/2024) riconosce il credito quando la tassazione sostitutiva è obbligatoria.
 
 ### Quadro RW / IVAFE — monitoraggio
 
 **La regola.** Vanno monitorate **tutte** le attività estere detenute nell'anno (anche
 se in perdita o non movimentate) e su di esse si paga l'**IVAFE**, l'imposta
 patrimoniale sui prodotti finanziari esteri: **0,2%** annuo (0,4% se il paese è in black
-list), **pro-rata** sui giorni di possesso.
+list), **pro-rata** sui giorni di possesso. **Se l'IVAFE complessiva non supera 200 € il
+versamento non è dovuto** (il rigo RW si compila comunque a solo monitoraggio
+dell'attività): il prospetto distingue quindi *teorica* e *da versare*.
+
+Nel quadro lo **Stato estero è riportato col codice numerico AdE a 3 cifre** (tabella
+"Elenco Paesi e Territori esteri": US=069, IE=040...), affiancato al consueto ISO.
 
 **La valorizzazione** usa il cambio **medio mensile** ufficiale (non quello giornaliero):
 - titolo ancora in portafoglio al 31/12 → **valore di mercato al 31/12**;
@@ -225,16 +261,21 @@ di comando.
 
 ## Limitazioni note
 
-- **Titoli trasferiti dentro IBKR senza storico di acquisto.** Il motore LIFO
-  ricostruisce i lotti dai soli trade presenti nei file. Se una posizione è stata
-  *trasferita* da un altro intermediario (nessun trade di apertura nello storico), una
-  successiva vendita genera un lotto **short "fantasma"** con plusvalenza errata, senza
-  avviso. Finché non si trasferiscono titoli non è un problema; in futuro andrà aggiunto
-  un controllo che intercetti gli short non spiegati e/o il caricamento manuale del costo
-  storico.
+- **Titoli trasferiti dentro IBKR senza storico di acquisto.** Il motore ricostruisce
+  i lotti dai soli trade presenti nei file. Se una posizione è stata *trasferita* da un
+  altro intermediario (nessun trade di apertura nello storico), una successiva vendita
+  apre uno **short "fantasma"**: il software lo rileva a fine elaborazione ed emette un
+  warning `SHORT_SPURIO` (simbolo e quantità), che va assolutamente verificato
+  caricando a mano il costo storico corretto (il valore calcolato in assenza sarebbe
+  errato).
 - **Operazioni societarie complesse** (fusioni, spin-off, cambio simbolo) non sono
   gestite automaticamente: split e raggruppamenti sì, gli altri casi generano un warning
   e vanno verificati a mano.
+- **Integrità del file di input.** All'apertura il software verifica la presenza delle
+  colonne fiscali essenziali della Flex Query (importi, commissioni, date, ID
+  transazione) e **fallisce o segnala con warning CRITICAL** qualunque dato mancante,
+  duplicato o non riconducibile (cancellazioni, date non parsabili, valori `buySell`
+  sconosciuti): in questi casi il risultato va riesaminato prima dell'uso.
 
 ---
 ---
@@ -296,6 +337,7 @@ python -m fiscoib ib_2023.xml ib_2024.xml ib_2025.xml --anno 2025 --out ./out
 | `--offline` | off | Non scarica cambi online (usa solo cache/override) |
 | `--overrides` | – | JSON coi cambi medi mensili ufficiali AdE |
 | `--prior-losses` | – | JSON `{anno: importo}` di minusvalenze pregresse riportabili |
+| `--gov-bonds` | – | JSON lista di ISIN/simboli di titoli di Stato white list (cedole al 12,5% codice A; senza lista, ogni emittente obbligazionario genera warning) |
 
 Esempio `prior-losses.json`:
 
@@ -366,16 +408,16 @@ ciascuna regola:
 
 | Regola fiscale | File · funzione principale |
 |---|---|
-| Lettura del Flex Query XML di IBKR | `parsing/flex_parser.py` · `load`, `parse_file` |
-| Modello dati normalizzato degli eventi | `parsing/models.py` |
-| Metodo **LIFO** e ricostruzione dei lotti | `engines/lots.py` · `LotBook.process_trade`, `build_closures` |
+| Lettura del Flex Query XML di IBKR (validazione colonne, dedup ID/hash, warning anti-drop) | `parsing/flex_parser.py` · `load`, `parse_file` |
+| Modello dati normalizzato degli eventi (incl. distinzione OICR/ETF) | `parsing/models.py` |
+| Metodo **LIFO** (azioni) e **costo medio ponderato** (OICR), ricostruzione lotti | `engines/lots.py` · `LotBook.process_trade`, `build_closures` |
 | Split / raggruppamenti (corporate action) | `engines/lots.py` · `LotBook.process_corporate_action` |
-| **Quadro RT**: RT21/RT22, plus/minus, commissioni deducibili | `engines/capital_gains.py` · `compute_rt` |
+| **Quadro RT**: RT21/RT22, plus/minus, commissioni deducibili; plus OICR scorporate | `engines/capital_gains.py` · `compute_rt` |
 | Minusvalenze pregresse (4 anni, oldest-first) e riporto | `engines/capital_gains.py` · `compute_rt` |
-| **Quadro RM**: dividendi lordo/netto frontiera | `engines/income.py` · `compute_rm` |
-| Ritenute estere e credito teorico | `engines/income.py` · `compute_rm` |
-| Interessi attivi (G/I) e interessi passivi non deducibili | `engines/income.py` · `compute_rm` |
-| **Quadro RW / IVAFE**: valorizzazione, pro-rata giorni, codici bene | `engines/monitoring.py` · `compute_rw` |
+| **Quadro RM**: dividendi lordo/netto frontiera; titoli di Stato 12,5% (codice A) | `engines/income.py` · `compute_rm` |
+| Ritenute estere (match ±3 gg) e credito teorico | `engines/income.py` · `compute_rm` |
+| Codici Stato estero numerici AdE | `ade_tables.py` · `iso2_to_ade` |
+| **Quadro RW / IVAFE**: valorizzazione, pro-rata giorni, codici bene, soglia 200 € | `engines/monitoring.py` · `compute_rw` |
 | Cambi ufficiali giornalieri e medi mensili (+ override AdE) | `fx/rates.py` · `RatesProvider`; `fx/ade_overrides.py` |
 | Scelte fiscali e default prudenti | `config.py` · `FiscoConfig` |
 | Warning sui casi incerti | `warnings.py` |
@@ -387,18 +429,28 @@ ciascuna regola:
 python -m pytest -q
 ```
 
-I test verificano i casi limite contro valori calcolati a mano: LIFO multi-lotto e short,
-dividendo con ritenuta (lordo/netto), IVAFE pro-rata e su posizioni multi-lotto, titolo
-comprato e venduto nello stesso anno, cambi con fallback su giorni festivi.
+I test (58) verificano i casi limite contro valori calcolati a mano: LIFO multi-lotto e
+short, costo medio ponderato OICR, separazione plus OICR / minus in RT, dividendo con
+ritenuta (lordo/netto), IVAFE pro-rata e soglia 200 €, titolo comprato e venduto nello
+stesso anno, cambi con fallback su giorni festivi, validazioni d'ingresso e dedup.
 
 ## Riferimenti normativi
 
-- Monitoraggio RW: art. 4 D.L. 167/1990 — IVAFE: art. 19 D.L. 201/2011.
-- Plusvalenze: artt. 67–68 TUIR — LIFO: art. 67 c.1-bis TUIR — commissioni: Interpello
-  AdE 344/2020.
+- Monitoraggio RW: art. 4 D.L. 167/1990 — IVAFE: art. 19 D.L. 201/2011 (aliquota 2‰
+  ordinaria; 4‰ solo black list dal 2024, art. 1 c. 91 lett. b L. 213/2023).
+- Plusvalenze: artt. 67–68 TUIR — LIFO: art. 67 c.1-bis TUIR — commissioni: art. 68
+  c. 6 TUIR — plusvalenze in valuta estera: Risposta AdE n. 344/2020 (incipit
+  specifico su valute; non la base della deducibilità commissioni).
+- Quote OICR/ETF: plusvalenza = reddito di capitale (art. 44 c. 1 lett. g TUIR);
+  costo medio ponderato; minus solo verso redditi diversi.
 - Redditi di capitale: artt. 18 e 44 TUIR — credito d'imposta estero: art. 165 TUIR —
-  lordo frontiera: Interpello AdE 111/2020.
-- Cambi: art. 110 c.9 TUIR — cambi di riferimento Banca d'Italia.
+  lordo frontiera: istruzioni rigo RM31 col. 3 e Risposta AdE n. 111/2020 —
+  cedole titoli di Stato 12,5%: art. 31 DPR 601/1973 e D.L. 138/2011.
+- Cambi: cambio del giorno per RT/RM, medio mensile per RW (Circ. AdE 38/E/2013);
+  tassi di riferimento Banca d'Italia.
+
+L'elenco completo e commentato dei riferimenti, con i link alle fonti ufficiali, è in
+[`NORMATIVA_RIFERIMENTI.md`](NORMATIVA_RIFERIMENTI.md).
 
 > I **numeri di rigo** dei quadri (RT21, RM31, ecc.) e le **istruzioni** vanno sempre
 > verificati sulle **istruzioni ministeriali dell'anno d'imposta**, perché cambiano di

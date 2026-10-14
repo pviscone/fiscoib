@@ -54,6 +54,8 @@ def write_json(results: Results, path: str) -> None:
         "RW": {
             "tot_valore_finale_eur": r.rw.tot_valore_finale_eur,
             "tot_ivafe_eur": r.rw.tot_ivafe_eur,
+            "ivafe_non_dovuta": r.rw.ivafe_non_dovuta,
+            "ivafe_da_versare": r.rw.ivafe_da_versare,
             "righi": [w.__dict__ for w in r.rw.rows],
         },
         "totale_imposte": r.imposta_totale,
@@ -85,13 +87,16 @@ def write_csv(results: Results, out_dir: str) -> None:
     with open(os.path.join(out_dir, "rm_dividendi.csv"), "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(
-            ["symbol", "stato", "pay_date", "valuta", "lordo_ccy", "ritenuta_ccy",
+            ["symbol", "stato", "stato_ade", "lettera", "aliquota", "pay_date", "valuta",
+             "lordo_ccy", "ritenuta_ccy",
              "cambio", "lordo_eur", "ritenuta_eur", "base_imponibile_eur", "imposta_eur",
              "credito_teorico_eur"]
         )
         for d in results.rm.dividends:
             w.writerow(
-                [d.symbol, d.country, d.pay_date, d.currency, d.gross_ccy, d.wht_ccy,
+                [d.symbol, d.country, getattr(d, "country_ade", ""),
+                 getattr(d, "lettera", ""), getattr(d, "aliquota", ""),
+                 d.pay_date, d.currency, d.gross_ccy, d.wht_ccy,
                  d.rate, d.gross_eur, d.wht_eur, d.base_imponibile_eur, d.imposta_eur,
                  d.credito_teorico_eur]
             )
@@ -100,13 +105,14 @@ def write_csv(results: Results, out_dir: str) -> None:
     with open(os.path.join(out_dir, "rw_monitoraggio.csv"), "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(
-            ["descrizione", "codice_bene", "stato", "cod_valorizzazione",
+            ["descrizione", "codice_bene", "stato", "stato_estero_ade", "cod_valorizzazione",
              "valore_iniziale_eur", "valore_finale_eur", "giorni", "quota_pct",
              "ivafe_applicata", "ivafe_aliquota", "ivafe_eur", "solo_monitoraggio"]
         )
         for row in results.rw.rows:
             w.writerow(
-                [row.descrizione, row.codice_bene, row.stato_estero, row.codice_valorizzazione,
+                [row.descrizione, row.codice_bene, row.stato_estero,
+                 getattr(row, "stato_estero_ade", row.stato_estero), row.codice_valorizzazione,
                  row.valore_iniziale_eur, row.valore_finale_eur, row.giorni, row.quota_pct,
                  row.ivafe_applicata, row.ivafe_aliquota, row.ivafe_eur, row.solo_monitoraggio]
             )

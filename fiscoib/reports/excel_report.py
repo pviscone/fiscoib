@@ -49,8 +49,9 @@ def build(results: Results, path: str) -> None:
     rows = [
         ("Imposta sostitutiva RT (plusvalenze)", r.rt.rt27_imposta),
         ("Imposta sostitutiva RM (dividendi/interessi)", r.rm.tot_imposta_rm),
-        ("IVAFE (RW)", r.rw.tot_ivafe_eur),
-        ("TOTALE IMPOSTE DOVUTE", r.imposta_totale),
+        ("IVAFE (RW) teorica", r.rw.tot_ivafe_eur),
+        ("IVAFE da versare", r.rw.ivafe_da_versare),
+        ("TOTALE IMPOSTE DA VERSARE", r.imposta_totale),
         ("Minusvalenza dell'anno da riportare", r.rt.minus_anno),
         ("Ritenute estere subite (info)", r.rm.tot_wht_estera_eur),
         ("Credito teorico rimborso (info)", r.rm.tot_credito_teorico_eur),
@@ -84,17 +85,21 @@ def build(results: Results, path: str) -> None:
 
     # -------- Dividendi/Interessi RM --------
     ws = wb.create_sheet("Dividendi_Interessi_RM")
-    _header(ws, 1, ["Titolo", "Stato", "Pay date", "Valuta", "Lordo ccy", "Ritenuta ccy",
+    _header(ws, 1, ["Titolo", "Stato", "Stato AdE", "Alq.", "Pay date", "Valuta",
+                    "Lordo ccy", "Ritenuta ccy",
                     "Cambio", "Lordo €", "Ritenuta €", "Base imp. €", "Imposta €", "Credito teor. €"])
     ridx = 2
     for d in r.rm.dividends:
-        vals = [d.symbol, d.country, str(d.pay_date), d.currency, _num(d.gross_ccy),
+        vals = [d.symbol, d.country, getattr(d, "country_ade", ""),
+                float(getattr(d, "aliquota", 0.26)), str(d.pay_date), d.currency, _num(d.gross_ccy),
                 _num(d.wht_ccy), _num(d.rate), _num(d.gross_eur), _num(d.wht_eur),
                 _num(d.base_imponibile_eur), _num(d.imposta_eur), _num(d.credito_teorico_eur)]
         for c, v in enumerate(vals, 1):
             cell = ws.cell(row=ridx, column=c, value=v)
-            if c in (5, 6, 8, 9, 10, 11, 12):
+            if c in (7, 8, 10, 11, 12, 13, 14):
                 cell.number_format = EUR
+            elif c == 4:
+                cell.number_format = "0.0%"
         ridx += 1
     ridx += 1
     ws.cell(row=ridx, column=1, value="INTERESSI").font = Font(bold=True)
@@ -114,24 +119,32 @@ def build(results: Results, path: str) -> None:
 
     # -------- Monitoraggio RW/IVAFE --------
     ws = wb.create_sheet("Monitoraggio_RW_IVAFE")
-    _header(ws, 1, ["Descrizione", "Cod. bene", "Stato", "Cod. valoriz.", "Valore iniz. €",
+    _header(ws, 1, ["Descrizione", "Cod. bene", "Stato", "Stato AdE", "Cod. valoriz.",
+                    "Valore iniz. €",
                     "Valore fin. €", "Giorni", "Quota %", "IVAFE applic.", "Aliquota",
                     "IVAFE €", "Solo monit."])
     for i, w in enumerate(r.rw.rows, start=2):
-        vals = [w.descrizione, w.codice_bene, w.stato_estero, w.codice_valorizzazione,
+        vals = [w.descrizione, w.codice_bene, w.stato_estero,
+                getattr(w, "stato_estero_ade", w.stato_estero), w.codice_valorizzazione,
                 w.valore_iniziale_eur, w.valore_finale_eur, w.giorni, _num(w.quota_pct),
                 "Sì" if w.ivafe_applicata else "No", _num(w.ivafe_aliquota), _num(w.ivafe_eur),
                 "Sì" if w.solo_monitoraggio else ""]
         for c, v in enumerate(vals, 1):
             cell = ws.cell(row=i, column=c, value=v)
-            if c in (5, 6, 11):
+            if c in (6, 7, 12):
                 cell.number_format = EUR
     last = len(r.rw.rows) + 3
     ws.cell(row=last, column=1, value="TOTALE").font = Font(bold=True)
-    ws.cell(row=last, column=6, value=r.rw.tot_valore_finale_eur).number_format = EUR
-    tot = ws.cell(row=last, column=11, value=_num(r.rw.tot_ivafe_eur))
+    ws.cell(row=last, column=7, value=r.rw.tot_valore_finale_eur).number_format = EUR
+    tot = ws.cell(row=last, column=12, value=_num(r.rw.tot_ivafe_eur))
     tot.number_format = EUR
     tot.font = Font(bold=True)
+    if r.rw.ivafe_non_dovuta:
+        ws.cell(
+            row=last + 1, column=1,
+            value=f"IVAFE {r.rw.tot_ivafe_eur:.2f} € ≤ 200 €: VERSAMENTO NON DOVUTO "
+                  f"(solo obbligo dichiarativo RW) [art. 19 c.20 DL 201/2011]",
+        ).font = Font(bold=True)
     _autosize(ws)
 
     # -------- Cambi usati --------

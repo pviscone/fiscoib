@@ -29,7 +29,9 @@ class Results:
 
     @property
     def imposta_totale(self) -> Decimal:
-        return self.rt.rt27_imposta + self.rm.tot_imposta_rm + self.rw.tot_ivafe_eur
+        """Totale imposte DA VERSARE: l'IVAFE ≤ 200€ non è dovuta (resta dovuto
+        il solo monitoraggio RW)."""
+        return self.rt.rt27_imposta + self.rm.tot_imposta_rm + self.rw.ivafe_da_versare
 
 
 def run(
@@ -38,6 +40,7 @@ def run(
     rates: RatesProvider,
     prior_losses: Optional[Dict[int, Decimal]] = None,
     warnings: Optional[WarningCollector] = None,
+    gov_bonds: Optional[set] = None,
 ) -> Results:
     """Esegue l'intera pipeline.
 
@@ -54,7 +57,7 @@ def run(
             if isinstance(statement_or_paths, (list, tuple))
             else [statement_or_paths]
         )
-        statement = load(list(paths))
+        statement = load(list(paths), warnings=warnings)
 
     # 1) LIFO -> chiusure realizzate (su tutto lo storico).
     closures, _book = build_closures(
@@ -62,7 +65,8 @@ def run(
     )
 
     # 2) Redditi di capitale (RM) + componenti c-quater per RT.
-    rm = compute_rm(statement.cash_transactions, rates, config, warnings)
+    rm_kwargs = {"gov_bonds": gov_bonds} if gov_bonds else {}
+    rm = compute_rm(statement.cash_transactions, rates, config, warnings, **rm_kwargs)
 
     # 3) Plusvalenze (RT), includendo eventuali dividend adjustment CFD / PIL→RT.
     rt = compute_rt(

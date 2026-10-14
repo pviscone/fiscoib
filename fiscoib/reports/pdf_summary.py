@@ -44,8 +44,12 @@ def build(results: Results, path: str) -> None:
         ["Voce", "Importo"],
         ["Imposta sostitutiva RT (plusvalenze)", _eur(r.rt.rt27_imposta)],
         ["Imposta sostitutiva RM (dividendi/interessi)", _eur(r.rm.tot_imposta_rm)],
-        ["IVAFE (RW)", _eur(r.rw.tot_ivafe_eur)],
-        ["TOTALE IMPOSTE DOVUTE", _eur(r.imposta_totale)],
+        [
+            ("IVAFE (RW) teorica — NON DOVUTA (≤ 200€)"
+             if r.rw.ivafe_non_dovuta else "IVAFE (RW)"),
+            _eur(r.rw.tot_ivafe_eur),
+        ],
+        ["TOTALE IMPOSTE DA VERSARE", _eur(r.imposta_totale)],
     ]
     t = Table(data, colWidths=[110 * mm, 50 * mm])
     t.setStyle(
@@ -90,14 +94,23 @@ def build(results: Results, path: str) -> None:
     story.append(Spacer(1, 6 * mm))
 
     smin, smax = r.rw.sanzione_potenziale()
+    fascia = "6%–30% (conto black list)" if r.config.account_is_blacklist else "3%–15%"
     story.append(
         Paragraph(
             f"<b>Attenzione RW:</b> l'omessa/infedele dichiarazione del Quadro RW "
             f"comporta sanzioni stimate tra {_eur(smin)} e {_eur(smax)} "
-            f"(3%–15% del valore non dichiarato).",
+            f"({fascia} del valore non dichiarato).",
             normal,
         )
     )
+    if r.rw.ivafe_non_dovuta:
+        story.append(
+            Paragraph(
+                f"<b>IVAFE:</b> imposta teorica {_eur(r.rw.tot_ivafe_eur)} ≤ 200 €: "
+                f"versamento NON dovuto; resta l'obbligo di monitoraggio nel Quadro RW.",
+                normal,
+            )
+        )
     story.append(Spacer(1, 4 * mm))
 
     # Warning

@@ -5,6 +5,13 @@ tutte nella stessa sezione e si compensano tra loro. La componente cambio è
 incorporata: ogni gamba dell'operazione è convertita in EUR al cambio giornaliero
 ufficiale della propria data.
 
+QUOTE OICR/ETF esteri (``Instrument.is_fund``): i risultati positivi da cessione o
+rimborso sono REDDITI DI CAPITALE (art. 44 c.1 lett. g TUIR): NON entrano in RT,
+NON concorrono al saldo e NON si compensano con le minusvalenze; finiscono nel
+campo ``oicr_gains`` del risultato (tassati al 26% come redditi di capitale, quadro
+RM sezione II, lett. H). I risultati NEGATIVI da OICR restano invece redditi
+diversi e seguono il normale trattamento RT (minusvalenze compensabili).
+
 Convenzione RT21/RT22 usata:
 - RT21 (corrispettivi) = corrispettivo lordo di vendita (per le posizioni long è la
   chiusura, per le short è l'apertura/vendita allo scoperto).
@@ -61,6 +68,12 @@ class RTResult:
     minus_anno: Decimal = ZERO               # minusvalenza dell'anno (se saldo < 0)
     minus_da_riportare: Dict[int, Decimal] = field(default_factory=dict)  # anno->residuo
 
+    # Proventi da cessione di quote OICR/ETF esteri in positivo: redditi di
+    # capitale (art. 44 c.1 lett. g TUIR), tassati al 26% SENZA compensazione
+    # con le minusvalenze. Chiavi: symbol, data_chiusura, descrizione, qty,
+    # gain_eur, aliquota, lettera ('H'), country.
+    oicr_gains: List[dict] = field(default_factory=list)
+
     @property
     def saldo_netto(self) -> Decimal:
         return self.rt21_corrispettivi - self.rt22_costi
@@ -113,6 +126,25 @@ def compute_rt(
 
         commissioni = open_comm_eur + close_comm_eur
         plus = corrispettivo - costo
+
+        # OICR/ETF: il GAIN è reddito di capitale (art. 44 c.1 lett. g TUIR):
+        # escluso da RT e dalle compensazioni. La LOSS resta reddito diverso.
+        if c.instrument.is_fund and plus > 0:
+            isin = c.instrument.isin or ""
+            country = isin[:2].upper() if len(isin) >= 2 and isin[:2].isalpha() else ""
+            result.oicr_gains.append(
+                {
+                    "symbol": c.instrument.symbol,
+                    "data_chiusura": c.close_date,
+                    "descrizione": c.instrument.description,
+                    "qty": c.qty,
+                    "gain_eur": q2(plus),
+                    "aliquota": str(config.aliquota_sostitutiva),
+                    "lettera": "H",
+                    "country": country,
+                }
+            )
+            continue
 
         result.rows.append(
             GainRow(

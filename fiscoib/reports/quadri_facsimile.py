@@ -15,6 +15,13 @@ def _line(char="-", n=78):
     return char * n
 
 
+def _g(row, key, default=None):
+    """Legge un attributo (o chiave) opzionale di una riga risultato."""
+    if isinstance(row, dict):
+        return row.get(key, default)
+    return getattr(row, key, default)
+
+
 def render(results: Results) -> str:
     r = results
     cfg = r.config
@@ -40,6 +47,7 @@ def render(results: Results) -> str:
     if r.rt.minus_da_riportare:
         det = ", ".join(f"{y}: € {v:,.2f}" for y, v in sorted(r.rt.minus_da_riportare.items()))
         out.append(f"  >> Minusvalenze residue riportabili: {det}")
+    out.append("  Codice tributo versamento F24 per RT: 1100")
     out.append("")
 
     # ---------------- QUADRO RM ----------------
@@ -48,18 +56,29 @@ def render(results: Results) -> str:
     out.append(_line())
     if r.rm.dividends:
         out.append("  Dividendi (codice reddito H):")
-        out.append("    " + f"{'Titolo':<14}{'Stato':<6}{'Base imp.EUR':>14}{'Imposta EUR':>14}")
+        out.append("    " + f"{'Titolo':<14}{'Stato':<6}{'AdE':>4}{'Alq.':>6}{'Base imp.EUR':>14}{'Imposta EUR':>14}")
         for d in r.rm.dividends:
+            ali = _g(d, "aliquota", cfg.aliquota_sostitutiva)
+            country_ade = _g(d, "country_ade", "") or ""
             out.append(
                 "    "
-                + f"{d.symbol[:13]:<14}{d.country:<6}{d.base_imponibile_eur:>14,.2f}{d.imposta_eur:>14,.2f}"
+                + f"{d.symbol[:13]:<14}{d.country:<6}{str(country_ade)[:4]:>4}"
+                + f"{float(ali) * 100:>5.1f}%{d.base_imponibile_eur:>14,.2f}{d.imposta_eur:>14,.2f}"
             )
     if r.rm.interests:
         out.append("  Interessi (codice reddito G/I):")
         for i in r.rm.interests:
+            ali = _g(i, "aliquota", cfg.aliquota_sostitutiva)
+            country_ade = _g(i, "country_ade", "") or ""
+            tag = ""
+            if _g(i, "lettera"):
+                tag = f" [lett. {_g(i, 'lettera')}]"
+            if ali != cfg.aliquota_sostitutiva:
+                tag += f" [{float(ali) * 100:.0f}%]"
             out.append(
                 "    "
-                + f"{i.description[:20]:<22}{i.country:<6}{i.base_eur:>14,.2f}{i.imposta_eur:>14,.2f}"
+                + f"{i.description[:20]:<22}{i.country:<6}{str(country_ade)[:4]:>4}"
+                + f"{i.base_eur:>14,.2f}{i.imposta_eur:>14,.2f}{tag}"
             )
     out.append("")
     out.append(f"  RM31 col.3  Totale base imponibile dividendi .... € {r.rm.tot_base_dividendi:>14,.2f}")
@@ -69,42 +88,74 @@ def render(results: Results) -> str:
         out.append(f"  (info) Ritenute estere subite .................. € {r.rm.tot_wht_estera_eur:>14,.2f}")
         out.append(f"  (info) Credito teorico da eventuale rimborso ... € {r.rm.tot_credito_teorico_eur:>14,.2f}")
         out.append(f"  Base imponibile: frontiera = {cfg.frontiera.upper()}")
-    out.append("  Codice tributo versamento F24: 1242")
+    out.append("  Codice tributo versamento F24 per RM: 1242")
     out.append("")
 
     # ---------------- QUADRO RW ----------------
+    aliquota_rw = (
+        cfg.ivafe_rate_blacklist
+        if cfg.is_blacklist(cfg.account_country)
+        else cfg.ivafe_rate
+    )
     out.append(_line())
-    out.append("QUADRO RW - Monitoraggio fiscale e IVAFE (0,2%)")
+    out.append(f"QUADRO RW - Monitoraggio fiscale e IVAFE ({float(aliquota_rw) * 100:.1f}%)")
     out.append(_line())
-    hdr = f"{'#':>2} {'Descrizione':<26}{'Cod':>4}{'Stato':>6}{'ValIniz':>10}{'ValFin':>10}{'gg':>5}{'IVAFE':>9}"
+    hdr = (
+        f"{'#':>2} {'Descrizione':<26}{'Cod':>4}{'Stato':>6}{'StatoAdE':>9}"
+        f"{'ValIniz':>10}{'ValFin':>10}{'gg':>5}{'IVAFE':>9}"
+    )
     out.append("  " + hdr)
     for idx, w in enumerate(r.rw.rows, 1):
         flag = " *" if w.solo_monitoraggio else ""
         out.append(
             "  "
             + f"{idx:>2} {w.descrizione[:25]:<26}{w.codice_bene:>4}{w.stato_estero:>6}"
+            + f"{w.stato_estero_ade:>9}"
             + f"{w.valore_iniziale_eur:>10,d}{w.valore_finale_eur:>10,d}{w.giorni:>5}{w.ivafe_eur:>9,.2f}{flag}"
         )
     out.append("")
     out.append(f"  Totale valore finale monitorato ................ € {r.rw.tot_valore_finale_eur:>14,d}")
-    out.append(f"  Totale IVAFE dovuta (0,2%) ..................... € {r.rw.tot_ivafe_eur:>14,.2f}")
+    out.append(f"  IVAFE teorica ({float(aliquota_rw) * 100:.1f}%) ........................ € {r.rw.tot_ivafe_eur:>14,.2f}")
+    if r.rw.ivafe_non_dovuta:
+        out.append(
+            f"  >> IVAFE € {r.rw.tot_ivafe_eur:,.2f} ≤ 200€: VERSAMENTO NON DOVUTO "
+            f"(dichiarare solo RW) [art. 19 c.20 DL 201/2011]"
+        )
+    else:
+        out.append(f"  IVAFE da versare ............................... € {r.rw.ivafe_da_versare:>14,.2f}")
     out.append("  (*) rigo con casella 'solo monitoraggio' barrata (IVAFE non applicata)")
     smin, smax = r.rw.sanzione_potenziale()
+    fascia = "6%-30% (conto black list)" if cfg.account_is_blacklist else "3%-15%"
     out.append(
         f"  ATTENZIONE: l'omessa compilazione RW comporta sanzioni stimate tra "
-        f"€ {smin:,.2f} e € {smax:,.2f} (3%-15% del valore)."
+        f"€ {smin:,.2f} e € {smax:,.2f} ({fascia} del valore)."
     )
     out.append("")
 
     # ---------------- TOTALI ----------------
     out.append(_line("="))
-    out.append("  RIEPILOGO IMPOSTE")
+    out.append("  RIEPILOGO IMPOSTE DA VERSARE (F24: RT cod. 1100, RM cod. 1242)")
     out.append(_line("="))
     out.append(f"  Imposta sostitutiva RT (plusvalenze) ........... € {r.rt.rt27_imposta:>14,.2f}")
     out.append(f"  Imposta sostitutiva RM (dividendi/interessi) ... € {r.rm.tot_imposta_rm:>14,.2f}")
-    out.append(f"  IVAFE (RW) ..................................... € {r.rw.tot_ivafe_eur:>14,.2f}")
-    out.append(f"  {'TOTALE IMPOSTE DOVUTE':<46} € {r.imposta_totale:>14,.2f}")
+    if r.rw.ivafe_non_dovuta:
+        out.append(f"  IVAFE (RW) teorica € {r.rw.tot_ivafe_eur:,.2f} -> 0,00 (≤ 200€, non dovuta)")
+    else:
+        out.append(f"  IVAFE (RW) ..................................... € {r.rw.tot_ivafe_eur:>14,.2f}")
+    out.append(f"  {'TOTALE IMPOSTE DA VERSARE':<46} € {r.imposta_totale:>14,.2f}")
     out.append("")
+    if r.rw.ivafe_non_dovuta:
+        out.append(
+            "  NOTA IVAFE: versamento non dovuto perché l'imposta complessiva non supera "
+            "€ 200; l'obbligo di monitoraggio (Quadro RW) resta."
+        )
+        out.append("")
+    out.append(_line())
+    out.append("  Chi si avvale del 730: le attività estere del Quadro RW si espongono nel")
+    out.append("  modello 730 nel Quadro W; i redditi di capitale del Quadro RM vanno")
+    out.append("  ricondotti nel Quadro M (rigo M31) del Modello Redditi PF secondo le")
+    out.append("  istruzioni ministeriali: in quel caso l'imposta qui calcolata non va")
+    out.append("  autoliquidata con F24 ma gestita tramite F24/730 come da istruzioni.")
     out.append(_line())
     out.append("  " + DISCLAIMER)
     out.append(_line())

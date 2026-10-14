@@ -12,15 +12,16 @@ QUADRO RT - Sezione II-A - Plusvalenze di natura finanziaria (26%)
   RT24  Minusvalenze pregresse utilizzate ......... €           0.00
   RT26  Imponibile ................................ €       4,074.74
   RT27  Imposta sostitutiva (26%) ................. €       1,059.43
+  Codice tributo versamento F24 per RT: 1100
 
 ------------------------------------------------------------------------------
 QUADRO RM - Sezione II-A (rigo RM31) - Redditi di capitale esteri (26%)
 ------------------------------------------------------------------------------
   Dividendi (codice reddito H):
-    Titolo        Stato   Base imp.EUR   Imposta EUR
-    AAPL          US             94.49         24.57
+    Titolo        Stato  AdE  Alq.  Base imp.EUR   Imposta EUR
+    AAPL          US     069 26.0%         94.49         24.57
   Interessi (codice reddito G/I):
-    USD CREDIT INTEREST   IE             18.90          4.91
+    USD CREDIT INTEREST   IE     040         18.90          4.91
 
   RM31 col.3  Totale base imponibile dividendi .... €          94.49
               Totale base imponibile interessi .... €          18.90
@@ -28,29 +29,38 @@ QUADRO RM - Sezione II-A (rigo RM31) - Redditi di capitale esteri (26%)
   (info) Ritenute estere subite .................. €          14.17
   (info) Credito teorico da eventuale rimborso ... €          14.17
   Base imponibile: frontiera = LORDO
-  Codice tributo versamento F24: 1242
+  Codice tributo versamento F24 per RM: 1242
 
 ------------------------------------------------------------------------------
-QUADRO RW - Monitoraggio fiscale e IVAFE (0,2%)
+QUADRO RW - Monitoraggio fiscale e IVAFE (0.2%)
 ------------------------------------------------------------------------------
-   # Descrizione                Cod Stato   ValIniz    ValFin   gg    IVAFE
-   1 AAPL                        20    IE    16,506         0  158    17.70
-   2 MSFT                        20    IE    13,755    17,654  352    34.05
-   3 Liquidità USD               20    IE     9,170     6,694  365    13.39
+   # Descrizione                Cod Stato StatoAdE   ValIniz    ValFin   gg    IVAFE
+   1 AAPL                        20    IE      040    16,506         0  158    17.70
+   2 MSFT                        20    IE      040    13,755    17,654  352    34.05
+   3 Liquidità USD               20    IE      040     9,170     6,694  365    13.39
 
   Totale valore finale monitorato ................ €         24,348
-  Totale IVAFE dovuta (0,2%) ..................... €          65.14
+  IVAFE teorica (0.2%) ........................ €          65.14
+  >> IVAFE € 65.14 ≤ 200€: VERSAMENTO NON DOVUTO (dichiarare solo RW) [art. 19 c.20 DL 201/2011]
   (*) rigo con casella 'solo monitoraggio' barrata (IVAFE non applicata)
   ATTENZIONE: l'omessa compilazione RW comporta sanzioni stimate tra € 730.44 e € 3,652.20 (3%-15% del valore).
 
 ==============================================================================
-  RIEPILOGO IMPOSTE
+  RIEPILOGO IMPOSTE DA VERSARE (F24: RT cod. 1100, RM cod. 1242)
 ==============================================================================
   Imposta sostitutiva RT (plusvalenze) ........... €       1,059.43
   Imposta sostitutiva RM (dividendi/interessi) ... €          29.48
-  IVAFE (RW) ..................................... €          65.14
-  TOTALE IMPOSTE DOVUTE                          €       1,154.05
+  IVAFE (RW) teorica € 65.14 -> 0,00 (≤ 200€, non dovuta)
+  TOTALE IMPOSTE DA VERSARE                      €       1,088.91
 
+  NOTA IVAFE: versamento non dovuto perché l'imposta complessiva non supera € 200; l'obbligo di monitoraggio (Quadro RW) resta.
+
+------------------------------------------------------------------------------
+  Chi si avvale del 730: le attività estere del Quadro RW si espongono nel
+  modello 730 nel Quadro W; i redditi di capitale del Quadro RM vanno
+  ricondotti nel Quadro M (rigo M31) del Modello Redditi PF secondo le
+  istruzioni ministeriali: in quel caso l'imposta qui calcolata non va
+  autoliquidata con F24 ma gestita tramite F24/730 come da istruzioni.
 ------------------------------------------------------------------------------
   AVVISO: questo prospetto è prodotto da uno strumento automatico di supporto al calcolo e NON sostituisce la consulenza di un commercialista. Diversi trattamenti fiscali sono normativamente incerti (frontiera dividendi, IVAFE su CFD/OTC, dividend adjustment, PIL). Verificare tutti i valori e i casi segnalati nei warning con un professionista prima di presentare la dichiarazione dei redditi.
 ------------------------------------------------------------------------------

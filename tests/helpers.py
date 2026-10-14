@@ -18,6 +18,20 @@ def stock(symbol="AAPL", currency="USD", exchange="NASDAQ", conid=None, isin="US
     )
 
 
+def etf(symbol="IWDA", currency="EUR", exchange="AEB", conid=None,
+        isin="IE00B4L5Y983", sub_category="ETF"):
+    return Instrument(
+        conid=conid or symbol,
+        symbol=symbol,
+        description=symbol,
+        asset_category="STK",  # gli ETF arrivano come STK con subCategory=ETF
+        isin=isin,
+        listing_exchange=exchange,
+        currency=currency,
+        sub_category=sub_category,
+    )
+
+
 def cfd(symbol="AAPL-CFD", currency="USD", conid=None):
     return Instrument(
         conid=conid or symbol,
@@ -28,16 +42,16 @@ def cfd(symbol="AAPL-CFD", currency="USD", conid=None):
     )
 
 
-def trade(inst, when, buy_sell, qty, price, commission="0", currency="USD", tid=None):
+def trade(inst, when, buy_sell, qty, price, commission="0", currency="USD", tid=None, open_close=""):
     d = when if isinstance(when, date) else date.fromisoformat(when)
     return Trade(
         instrument=inst,
-        trade_id=tid or f"{inst.symbol}-{d}-{buy_sell}-{qty}",
-        transaction_id=tid or f"{inst.symbol}-{d}-{buy_sell}-{qty}",
+        trade_id=tid or f"{inst.symbol}-{d}-{buy_sell}-{qty}-{open_close}",
+        transaction_id=tid or f"{inst.symbol}-{d}-{buy_sell}-{qty}-{open_close}",
         trade_date=d,
         settle_date=d,
         buy_sell=buy_sell,
-        open_close="",
+        open_close=open_close,
         quantity=Decimal(str(qty)),
         price=Decimal(str(price)),
         proceeds=Decimal("0"),

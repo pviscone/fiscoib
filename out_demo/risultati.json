@@ -56,7 +56,8 @@
         "base_imponibile_eur": 94.49,
         "imposta_eur": 24.57,
         "credito_teorico_eur": 14.17,
-        "codice_reddito": "H"
+        "codice_reddito": "H",
+        "country_ade": "069"
       }
     ],
     "interessi": [
@@ -69,18 +70,23 @@
         "rate": 1.0583,
         "base_eur": 18.9,
         "imposta_eur": 4.91,
-        "codice_reddito": "G"
+        "aliquota": 0.26,
+        "codice_reddito": "G",
+        "country_ade": "040"
       }
     ]
   },
   "RW": {
     "tot_valore_finale_eur": 24348,
     "tot_ivafe_eur": 65.14,
+    "ivafe_non_dovuta": true,
+    "ivafe_da_versare": 0.0,
     "righi": [
       {
         "descrizione": "AAPL",
         "codice_bene": "20",
         "stato_estero": "IE",
+        "stato_estero_ade": "040",
         "codice_valorizzazione": "1",
         "valore_iniziale_eur": 16506,
         "valore_finale_eur": 0,
@@ -96,6 +102,7 @@
         "descrizione": "MSFT",
         "codice_bene": "20",
         "stato_estero": "IE",
+        "stato_estero_ade": "040",
         "codice_valorizzazione": "1",
         "valore_iniziale_eur": 13755,
         "valore_finale_eur": 17654,
@@ -111,7 +118,8 @@
         "descrizione": "Liquidità USD",
         "codice_bene": "20",
         "stato_estero": "IE",
-        "codice_valorizzazione": "1",
+        "stato_estero_ade": "040",
+        "codice_valorizzazione": "3",
         "valore_iniziale_eur": 9170,
         "valore_finale_eur": 6694,
         "giorni": 365,
@@ -124,12 +132,12 @@
       }
     ]
   },
-  "totale_imposte": 1154.05,
+  "totale_imposte": 1088.91,
   "warnings": [
     {
       "level": "WARN",
       "code": "FRONTIERA",
-      "message": "Dividendi tassati al LORDO frontiera (posizione AdE). Ritenute estere per € 14.17 non scomputate: credito teorico € 14.17 recuperabile solo con istanza di rimborso (esito incerto)."
+      "message": "Dividendi tassati al LORDO frontiera (posizione AdE). Ritenute estere per € 14.17 non scomputate: credito teorico € 14.17 recuperabile solo con istanza di rimborso (esito incerto; Cass. 25698/2022 e 10204/2024 sono favorevoli ma la prassi AdE resta contraria — interpello 111/2020)."
     }
   ]
 }
