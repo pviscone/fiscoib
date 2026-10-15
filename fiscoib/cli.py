@@ -21,6 +21,7 @@ from .config import FiscoConfig
 from .fx.ade_overrides import builtin_overrides
 from .fx.rates import RatesProvider
 from .pipeline import run
+from .prorata import FundGovQuotas
 from .reports import quadri_facsimile, raw_export, excel_report, pdf_summary
 from .warnings import CRITICAL, WARN
 
@@ -88,7 +89,13 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="File JSON {anno: importo} di minusvalenze pregresse riportabili.")
     p.add_argument("--gov-bonds", default=None, metavar="PATH.json",
                    help="File JSON con la lista di ISIN/simboli di titoli di Stato "
-                        "(whitelist BTP & simili, tassati al 12,5%% nel Quadro RM).")
+                        "(whitelist BTP & simili, tassati al 12,5%% nel Quadro RM). "
+                        "Solo detenzione DIRETTA: per gli ETF usare --fund-gov-quota.")
+    p.add_argument("--fund-gov-quota", default=None, metavar="PATH.json",
+                   help="File JSON con la quota media di titoli di Stato white list "
+                        "degli ETF/fondi (pro-rata 12,5%% sull'aliquota dei gain OICR "
+                        "e delle distribuzioni). Formato: {\"ISIN\": 0.575} oppure "
+                        "{\"ISIN\": {\"2024\": 0.55, \"2025\": 0.58}} (vedi GUIDA).")
     return p
 
 
@@ -148,9 +155,30 @@ def main(argv=None) -> int:
             return 2
         gov_bonds = {str(x).strip() for x in data}
 
+    fund_gov_quotas = None
+    if args.fund_gov_quota:
+        if not os.path.exists(args.fund_gov_quota):
+            print(
+                f"ERRORE: file quote titoli di Stato OICR non trovato: {args.fund_gov_quota}.\n"
+                f"Correggere il percorso o rimuovere l'opzione --fund-gov-quota: senza la "
+                f"lista i gain/distribuzioni degli ETF sarebbero tassati al 26% pieno.",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            fund_gov_quotas = FundGovQuotas.load(args.fund_gov_quota)
+        except (json.JSONDecodeError, ValueError) as exc:
+            print(
+                f"ERRORE: {args.fund_gov_quota} non valido: {exc}.\n"
+                f"Formato atteso: {{\"ISIN\": 0.575}} oppure "
+                f"{{\"ISIN\": {{\"2024\": 0.55, \"2025\": 0.58}}}} (quote in [0, 1]).",
+                file=sys.stderr,
+            )
+            return 2
+
     try:
         results = run(args.input, config, rates, prior_losses=prior_losses,
-                      gov_bonds=gov_bonds)
+                      gov_bonds=gov_bonds, fund_gov_quotas=fund_gov_quotas)
     except Exception as exc:  # noqa: BLE001
         print(f"ERRORE: {exc}", file=sys.stderr)
         return 2

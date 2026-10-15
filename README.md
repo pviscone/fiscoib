@@ -94,7 +94,8 @@ python -m fiscoib ib_2023.xml ib_2024.xml ib_2025.xml --anno 2025 --out ./out
 | `--overrides` | – | JSON coi cambi medi mensili ufficiali AdE |
 | `--no-ade-builtin` | off | Non usare la tabella cambi AdE integrata |
 | `--prior-losses` | – | JSON `{anno: importo}` di minusvalenze pregresse riportabili |
-| `--gov-bonds` | – | JSON con la lista di ISIN/simboli di titoli di Stato white list (cedole al 12,5%, codice A; senza lista ogni emittente obbligazionario genera warning) |
+| `--gov-bonds` | – | JSON con la lista di ISIN/simboli di titoli di Stato white list (cedole al 12,5%, codice A; senza lista ogni emittente obbligazionario genera warning). Solo detenzione **diretta** |
+| `--fund-gov-quota` | – | JSON con la quota media di titoli di Stato white list degli ETF/fondi: abilita il **pro-rata** (aliquota effettiva 26% − 13,5%×quota) su gain e distribuzioni OICR (vedi GUIDA §2) |
 
 Esempio `prior-losses.json`:
 
@@ -106,6 +107,17 @@ Esempio `overrides.json` (cambi medi mensili ufficiali AdE, convenzione 1 EUR = 
 
 ```json
 [ { "currency": "USD", "year": 2025, "month": 12, "rate": 1.0512 } ]
+```
+
+Esempio `fund-gov-quota.json` (quote medie govies pubblicate dal gestore; il numero
+semplice vale per qualunque periodo, la forma per anno alimenta la media pesata sui
+giorni del tuo possesso):
+
+```json
+{
+  "IE00B4L5Y983": 0.575,
+  "IE00B3RBWM25": { "2023": 0.55, "2024": 0.58 }
+}
 ```
 
 Le opzioni `--frontiera`, `--ivafe-cfd`, `--ivafe-otc`, `--cfd-divadj`, `--pil`
@@ -121,7 +133,7 @@ Nella cartella `--out` vengono creati:
 | `quadri_facsimile.txt` | Facsimile leggibile dei tre quadri con i righi valorizzati |
 | `report_<anno>.xlsx` | Report Excel **riga per riga** (ogni chiusura, dividendo, posizione) |
 | `riepilogo_<anno>.pdf` | PDF riepilogativo |
-| `rt_plusvalenze.csv`, `rm_dividendi.csv`, `rw_monitoraggio.csv` | Export CSV per quadro |
+| `rt_plusvalenze.csv`, `rm_dividendi.csv`, `rm_oicr_guadagni.csv`, `rw_monitoraggio.csv` | Export CSV per quadro |
 | `risultati.json` | Tutti i risultati in formato strutturato |
 
 L'Excel è pensato per la **validazione**: mostra per ogni operazione i cambi usati, i
@@ -152,6 +164,13 @@ mancanti. La logica fiscale (giornaliero per RT/RM, medio mensile per RW) è spi
 - **Classificazione ETF/OICR.** Il riconoscimento di ETF/fondi si basa sui metadati del
   Flex (`sub_category`/`assetCategory`): se mancano, lo strumento ricade nel ramo
   azioni/LIFO. Controlla nel report la classe attribuita a ogni strumento.
+- **Pro-rata titoli di Stato negli ETF.** La quota media govies non è nello statement
+  IBKR: va presa dai portali fiscali dei gestori e passata con `--fund-gov-quota`.
+  Senza dato, gain e distribuzioni OICR sono tassati al 26% pieno (più del dovuto se il
+  fondo contiene govies) con warning `PRORATA_DA_CLASSIFICARE`; anomalie o stime
+  grezze nella quota si traducono in imposta sbagliata: verificare la colonna
+  `Quota gov` nel report. Approssimazioni documentate nella GUIDA §2: periodo di
+  possesso del lotto a costo medio e annata di pagamento per le distribuzioni.
 - **Operazioni societarie complesse** (fusioni, spin-off, cambio simbolo) non sono
   gestite automaticamente: split e raggruppamenti sì, gli altri casi generano warning e
   vanno verificati a mano.
@@ -203,6 +222,7 @@ Principi di progetto:
 | **Quadro RT**: RT21/RT22, plus/minus, commissioni deducibili; plus OICR scorporate | `engines/capital_gains.py` · `compute_rt` |
 | Minusvalenze pregresse (4 anni, oldest-first) e riporto | `engines/capital_gains.py` · `compute_rt` |
 | **Quadro RM**: dividendi lordo/netto frontiera; titoli di Stato 12,5% (codice A) | `engines/income.py` · `compute_rm` |
+| **Pro-rata titoli di Stato** sugli OICR: aliquota effettiva 26% − 13,5%×quota govies su gain ETF e distribuzioni (media pesata sui giorni di possesso) | `prorata.py` · `FundGovQuotas`; applicato in `capital_gains.compute_rt` e `income.compute_rm` |
 | Ritenute estere (match ±3 gg) e credito teorico | `engines/income.py` · `compute_rm` |
 | Codici Stato estero numerici AdE | `ade_tables.py` · `iso2_to_ade` |
 | **Quadro RW / IVAFE**: valorizzazione, pro-rata giorni, codici bene, soglia 200 € | `engines/monitoring.py` · `compute_rw` |
@@ -220,7 +240,9 @@ Il dettaglio normativo dietro ogni regola è in
 python -m pytest -q
 ```
 
-I test (58) verificano i casi limite contro valori calcolati a mano: LIFO multi-lotto e
-short, costo medio ponderato OICR, separazione plus OICR / minus in RT, dividendo con
-ritenuta (lordo/netto), IVAFE pro-rata e soglia 200 €, titolo comprato e venduto nello
-stesso anno, cambi con fallback su giorni festivi, validazioni d'ingresso e dedup.
+I test (70) verificano i casi limite contro valori calcolati a mano: LIFO multi-lotto e
+short, costo medio ponderato OICR, separazione plus OICR / minus in RT, pro-rata titoli
+di Stato (media pesata sui giorni, anni parziali, dato mancante con default prudente),
+dividendo con ritenuta (lordo/netto), IVAFE pro-rata e soglia 200 €, titolo comprato e
+venduto nello stesso anno, cambi con fallback su giorni festivi, validazioni d'ingresso
+e dedup.

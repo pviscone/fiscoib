@@ -40,6 +40,11 @@ def write_json(results: Results, path: str) -> None:
             "minus_anno": r.rt.minus_anno,
             "minus_da_riportare": r.rt.minus_da_riportare,
             "dettaglio": [row.__dict__ for row in r.rt.rows],
+            # Gain OICR/ETF (reddito di capitale, quadro RM): esposti qui perché
+            # il calcolo richiede il periodo di possesso (prorata titoli di Stato).
+            "oicr_gains": r.rt.oicr_gains,
+            "oicr_imponibile": r.rt.oicr_imponibile,
+            "oicr_imposta": r.rt.oicr_imposta,
         },
         "RM": {
             "tot_base_dividendi": r.rm.tot_base_dividendi,
@@ -99,6 +104,20 @@ def write_csv(results: Results, out_dir: str) -> None:
                  d.pay_date, d.currency, d.gross_ccy, d.wht_ccy,
                  d.rate, d.gross_eur, d.wht_eur, d.base_imponibile_eur, d.imposta_eur,
                  d.credito_teorico_eur]
+            )
+
+    # Gain OICR/ETF (reddito di capitale): aliquota effettiva dopo pro-rata.
+    with open(os.path.join(out_dir, "rm_oicr_guadagni.csv"), "w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(
+            ["symbol", "stato", "lettera", "data_chiusura", "qty", "gain_eur",
+             "quota_gov", "aliquota", "imposta_eur"]
+        )
+        for g in results.rt.oicr_gains:
+            w.writerow(
+                [g.get("symbol"), g.get("country"), g.get("lettera"),
+                 g.get("data_chiusura"), g.get("qty"), g.get("gain_eur"),
+                 g.get("quota_gov"), g.get("aliquota"), g.get("imposta_eur")]
             )
 
     # RW righi

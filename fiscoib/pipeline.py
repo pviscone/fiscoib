@@ -15,6 +15,7 @@ from .engines.monitoring import RWResult, compute_rw
 from .fx.rates import RatesProvider
 from .parsing.flex_parser import load
 from .parsing.models import Statement
+from .prorata import FundGovQuotas
 from .warnings import WarningCollector
 
 
@@ -30,8 +31,14 @@ class Results:
     @property
     def imposta_totale(self) -> Decimal:
         """Totale imposte DA VERSARE: l'IVAFE ≤ 200€ non è dovuta (resta dovuto
-        il solo monitoraggio RW)."""
-        return self.rt.rt27_imposta + self.rm.tot_imposta_rm + self.rw.ivafe_da_versare
+        il solo monitoraggio RW); l'imposta sui gain OICR (reddito di capitale)
+        è versata con il RM (codice 1242) ma è esposta separatamente."""
+        return (
+            self.rt.rt27_imposta
+            + self.rm.tot_imposta_rm
+            + self.rt.oicr_imposta
+            + self.rw.ivafe_da_versare
+        )
 
 
 def run(
@@ -41,6 +48,7 @@ def run(
     prior_losses: Optional[Dict[int, Decimal]] = None,
     warnings: Optional[WarningCollector] = None,
     gov_bonds: Optional[set] = None,
+    fund_gov_quotas: Optional[FundGovQuotas] = None,
 ) -> Results:
     """Esegue l'intera pipeline.
 
@@ -66,6 +74,8 @@ def run(
 
     # 2) Redditi di capitale (RM) + componenti c-quater per RT.
     rm_kwargs = {"gov_bonds": gov_bonds} if gov_bonds else {}
+    if fund_gov_quotas is not None:
+        rm_kwargs["fund_gov_quotas"] = fund_gov_quotas
     rm = compute_rm(statement.cash_transactions, rates, config, warnings, **rm_kwargs)
 
     # 3) Plusvalenze (RT), includendo eventuali dividend adjustment CFD / PIL→RT.
@@ -76,6 +86,7 @@ def run(
         prior_losses=prior_losses,
         extra_components=rm.cquater_components,
         warnings=warnings,
+        fund_gov_quotas=fund_gov_quotas,
     )
 
     # 4) Monitoraggio RW / IVAFE.

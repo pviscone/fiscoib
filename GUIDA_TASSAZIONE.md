@@ -165,12 +165,80 @@ Plusvalenza = 10 × (130 − 110) = 200 €  →  reddito di capitale, imposta 2
 (non compensabile con eventuali minusvalenze in sospeso)
 ```
 
+### Pro-rata titoli di Stato negli ETF obbligazionari (aliquota effettiva)
+
+Se l'ETF investe in obbligazioni, i risultati del fondo **non** sono tassati tutti al
+26% né tutti al 12,5%: partecipano dell'aliquota ridotta del 12,5% in proporzione alla
+**quota media di titoli di Stato italiani ed esteri "white list"** detenuti dal fondo
+durante il *tuo* periodo di possesso (art. 2, comma 1-quater, D.L. 138/2011; Circolare
+AdE 19/E/2014):
+
+```
+Aliquota effettiva = 26% − 13,5% × quota media govies white list
+```
+
+| Quota govies del fondo | Aliquota effettiva |
+|---|---|
+| 100% (ETF solo BTP/white list) | 12,50% |
+| 70% | 16,55% |
+| 50% | 19,25% |
+| 30% | 21,95% |
+| 0% (solo corporate) | 26,00% |
+
+Vale sia per le **plusvalenze da vendita** sia per le **distribuzioni** del fondo: sono
+entrambe "risultati maturati" dell'OICR. La componente corporate (e i govies *non* white
+list, es. emergenti fuori lista) resta sempre al 26%.
+
+**Come fornire il dato al programma.** La quota media non è nello statement IBKR:
+è pubblicata dal gestore sul proprio portale fiscale (es. iShares, Vanguard). Si passa
+un file JSON con `--fund-gov-quota`:
+
+```json
+{
+  "IE00B4L5Y983": {"2023": 0.55, "2024": 0.58},
+  "IE00B3RBWM25": 0.575
+}
+```
+
+- Chiave = ISIN, simbolo o conid IBKR del fondo (basta uno che combaci).
+- Forma estesa: quota media **per anno solare**; sul tuo periodo di possesso il
+  programma calcola la media pesata sui giorni di ogni anno.
+- Forma breve (un solo numero): quota trattata come costante per qualunque periodo.
+
+**Convenzioni prudenti del programma** (mai meno imposta del dovuto in caso di dato
+mancante):
+
+- anni del possesso **non coperti** dal file → conteggiati con quota 0 sulle frazioni
+  di periodo corrispondenti + warning `PRORATA_ANNI_PARZIALI`;
+- fondo assente dal file (o file non passato) → aliquota piena 26% + warning
+  `PRORATA_DA_CLASSIFICARE`;
+- per gli ETF il periodo di possesso considerato è [primo acquisto, vendita] del lotto
+  a costo medio ponderato;
+- per le distribuzioni, il cui periodo di maturazione non è noto, si usa la quota
+  media dell'anno solare di pagamento.
+
+**Esempio.** Vendi un ETF obbligazionario misto in gain di 2.000 €, detenuto dal
+1° luglio 2024 al 30 giugno 2025; quota govies media 2024 = 40%, 2025 = 60%:
+
+```
+Giorni 2024 = 184, giorni 2025 = 181
+Quota media = (0,40 × 184 + 0,60 × 181) / 365 = 49,92%
+Aliquota effettiva = 26% − 13,5% × 49,92% = 19,26%
+Imposta = 2.000 × 19,26% = 385,22 €   (vs 520 € al 26% pieno: risparmio 134,78 €)
+```
+
+Nel report la quota e l'aliquota effettiva sono esposte riga per riga (facsimile,
+foglio `OICR_RedditoCapitale` e CSV `rm_oicr_guadagni.csv`), così il dato è
+verificabile contro quello pubblicato dal gestore.
+
 ### Normativa
 
 Artt. 67 e 68 TUIR (redditi diversi, LIFO, costi e oneri accessori, riporto delle
 minusvalenze nei 4 anni); art. 44 c. 1 lett. g TUIR e Risposta AdE 157/2018 (quote
-OICR); Risposta AdE 344/2020 (conversione in euro operazione per operazione). Fonti e
-link: [`NORMATIVA_RIFERIMENTI.md`](NORMATIVA_RIFERIMENTI.md), sezione 1.
+OICR); art. 2 c. 1-quater D.L. 138/2011 e Circolare AdE 19/E/2014 (pro-rata titoli
+di Stato negli OICR); Risposta AdE 344/2020 (conversione in euro operazione per
+operazione). Fonti e link: [`NORMATIVA_RIFERIMENTI.md`](NORMATIVA_RIFERIMENTI.md),
+sezione 1.
 
 ---
 
@@ -218,7 +286,7 @@ Dividendi e interessi si distinguono per "tipo di reddito" (lettera del rigo):
 | **A** | Cedole di titoli di Stato italiani ed esteri in *white list* e di organismi sovranazionali | **12,5%** |
 | **C** | Altri redditi di capitale (es. *Payment In Lieu*, se trattato in RM) | 26% |
 | **G** | Interessi attivi su liquidità / deposito | 26% |
-| **H** | Dividendi e utili esteri; **plusvalenze su quote OICR** (vedi §2) | 26% |
+| **H** | Dividendi e utili esteri; **plusvalenze su quote OICR** (vedi §2) | 26% (= aliquota effettiva se ETF con pro-rata govies) |
 | **I** | Cedole di obbligazioni societarie e altri bond | 26% |
 
 - Il **12,5%** si applica solo se l'emittente è nella lista fornita con `--gov-bonds`
@@ -442,6 +510,12 @@ all'estero, anche se non producono reddito. Distinto dal pagamento dell'IVAFE.
 **OICR** — Organismo di Investimento Collettivo del Risparmio: fondi comuni ed ETF.
 Regime diverso dalle azioni: costo medio ponderato; plusvalenza = reddito di capitale
 non compensabile.
+
+**Pro-rata titoli di Stato (OICR)** — Riduzione dell'aliquota sui risultati di un
+ETF/fondo in proporzione alla quota media di titoli di Stato white list nel fondo:
+aliquota effettiva = 26% − 13,5% × quota govies (art. 2 c. 1-quater D.L. 138/2011).
+Dato da un file JSON (`--fund-gov-quota`), perché non presente nello statement IBKR
+(vedi §2).
 
 **Oneri accessori** — Commissioni e spese collegate all'operazione di acquisto o
 vendita. Deducibili: aumentano il costo fiscalmente rilevante.

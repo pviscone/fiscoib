@@ -49,6 +49,7 @@ def build(results: Results, path: str) -> None:
     rows = [
         ("Imposta sostitutiva RT (plusvalenze)", r.rt.rt27_imposta),
         ("Imposta sostitutiva RM (dividendi/interessi)", r.rm.tot_imposta_rm),
+        ("Imposta su plusvalenze OICR (reddito di capitale)", r.rt.oicr_imposta),
         ("IVAFE (RW) teorica", r.rw.tot_ivafe_eur),
         ("IVAFE da versare", r.rw.ivafe_da_versare),
         ("TOTALE IMPOSTE DA VERSARE", r.imposta_totale),
@@ -116,6 +117,36 @@ def build(results: Results, path: str) -> None:
                 cell.number_format = EUR
         ridx += 1
     _autosize(ws)
+
+    # -------- Gain OICR/ETF (reddito di capitale) --------
+    if r.rt.oicr_gains:
+        ws = wb.create_sheet("OICR_RedditoCapitale")
+        _header(ws, 1, ["Titolo", "Stato", "Data chiusura", "Qtà", "Gain €",
+                        "Quota gov.", "Alq. eff.", "Imposta €"])
+        for i, g in enumerate(r.rt.oicr_gains, start=2):
+            qg = g.get("quota_gov")
+            vals = [g.get("symbol"), g.get("country"), str(g.get("data_chiusura")),
+                    _num(g.get("qty")), _num(g.get("gain_eur")),
+                    float(qg) if qg is not None else None,
+                    float(g.get("aliquota", 0.26)), _num(g.get("imposta_eur"))]
+            for c, v in enumerate(vals, 1):
+                cell = ws.cell(row=i, column=c, value=v)
+                if c in (5, 8):
+                    cell.number_format = EUR
+                elif c in (6, 7):
+                    cell.number_format = "0.00%"
+        last = len(r.rt.oicr_gains) + 2
+        ws.cell(row=last, column=1, value="TOTALE").font = Font(bold=True)
+        ws.cell(row=last, column=5, value=_num(r.rt.oicr_imponibile)).number_format = EUR
+        tot = ws.cell(row=last, column=8, value=_num(r.rt.oicr_imposta))
+        tot.number_format = EUR
+        tot.font = Font(bold=True)
+        ws.cell(row=last + 1, column=1,
+                value="Pro-rata titoli di Stato: aliquota effettiva = 26% - 13,5% x "
+                      "quota govies white list (art. 2 c. 1-quater D.L. 138/2011). "
+                      "File --fund-gov-quota assente o fondo non elencato → 26% pieno."
+                ).alignment = Alignment(wrap_text=True)
+        _autosize(ws)
 
     # -------- Monitoraggio RW/IVAFE --------
     ws = wb.create_sheet("Monitoraggio_RW_IVAFE")

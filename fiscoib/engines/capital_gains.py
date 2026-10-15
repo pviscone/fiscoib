@@ -25,11 +25,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from ..config import FiscoConfig
 from ..money import ZERO, dec, q2
 from ..fx.rates import RatesProvider
+from ..prorata import (
+    CODE_PRORATA_ANNI_PARZIALI,
+    CODE_PRORATA_MANCANTE,
+    FundGovQuotas,
+    effective_rate,
+)
 from ..warnings import WarningCollector
 from .lots import Closure
 
@@ -70,9 +76,13 @@ class RTResult:
 
     # Proventi da cessione di quote OICR/ETF esteri in positivo: redditi di
     # capitale (art. 44 c.1 lett. g TUIR), tassati al 26% SENZA compensazione
-    # con le minusvalenze. Chiavi: symbol, data_chiusura, descrizione, qty,
-    # gain_eur, aliquota, lettera ('H'), country.
+    # con le minusvalenze; con --fund-gov-quota l'aliquota è l'effettiva
+    # pro-rata (26% - 13,5% x quota titoli di Stato white list del fondo).
+    # Chiavi: symbol, data_chiusura, descrizione, qty, gain_eur, aliquota,
+    # quota_gov, imposta_eur, lettera ('H'), country.
     oicr_gains: List[dict] = field(default_factory=list)
+    oicr_imponibile: Decimal = ZERO   # somma dei gain OICR (base, quadro RM)
+    oicr_imposta: Decimal = ZERO      # imposta OICR (somma dei q2 per-riga)
 
     @property
     def saldo_netto(self) -> Decimal:
@@ -90,6 +100,7 @@ def compute_rt(
     prior_losses: Optional[Dict[int, Decimal]] = None,
     extra_components: Optional[List] = None,
     warnings: Optional[WarningCollector] = None,
+    fund_gov_quotas: Optional[FundGovQuotas] = None,
 ) -> RTResult:
     """Calcola il Quadro RT per l'anno d'imposta ``config.tax_year``.
 
@@ -99,9 +110,17 @@ def compute_rt(
     ``extra_components``: lista di ``(label, importo_eur, data)`` per componenti
     c-quater esterni (es. dividend adjustment CFD, PIL trattati come RT). Positivi
     aumentano i corrispettivi, negativi aumentano i costi.
+
+    ``fund_gov_quotas``: quote medie di titoli di Stato white list per gli OICR
+    -- applica l'aliquota effettiva pro-rata ai gain degli ETF (art. 2 c. 1-quater
+    D.L. 138/2011). Fondi assenti dal file o file mancante: 26% pieno + warning
+    (una volta per fondo).
     """
     warnings = warnings or WarningCollector()
     result = RTResult(tax_year=config.tax_year)
+
+    # Fondi per cui il warning prorata è già stato emesso (una volta per fondo).
+    seen_prorata: Set[str] = set()
 
     for c in closures:
         if not c.close_date or c.close_date.year != config.tax_year:
@@ -132,18 +151,62 @@ def compute_rt(
         if c.instrument.is_fund and plus > 0:
             isin = c.instrument.isin or ""
             country = isin[:2].upper() if len(isin) >= 2 and isin[:2].isalpha() else ""
+
+            # Pro-rata titoli di Stato white list (art. 2 c. 1-quater D.L.
+            # 138/2011): periodo di possesso = [primo acquisto del lotto a costo
+            # medio ponderato, vendita]; anni senza dato pesano 0 (prudente).
+            aliquota = config.aliquota_sostitutiva
+            quota_gov: Optional[Decimal] = None
+            sym = c.instrument.symbol
+            info = (
+                fund_gov_quotas.average_quota(
+                    (isin, sym, c.instrument.conid), c.open_date, c.close_date
+                )
+                if fund_gov_quotas
+                else None
+            )
+            if info is not None:
+                quota_gov = info.quota
+                aliquota = effective_rate(config.aliquota_sostitutiva, info.quota)
+                if info.missing_years and sym not in seen_prorata:
+                    seen_prorata.add(sym)
+                    warnings.warn(
+                        CODE_PRORATA_ANNI_PARZIALI,
+                        f"Dati prorata parziali per {sym}: anni {list(info.missing_years)} "
+                        f"assenti dal file --fund-gov-quota, conteggiati con quota 0 "
+                        f"(aliquota piena su quella frazione): controllare il dato del gestore.",
+                    )
+            elif sym not in seen_prorata:
+                seen_prorata.add(sym)
+                note = (
+                    "il file --fund-gov-quota non contiene l'identificativo"
+                    if fund_gov_quotas
+                    else "manca il file --fund-gov-quota"
+                )
+                warnings.warn(
+                    CODE_PRORATA_MANCANTE,
+                    f"Plusvalenza su ETF/fondo {sym}: {note} se il fondo contiene titoli di "
+                    f"Stato white list. Applicata l'aliquota piena 26% (scelta prudente): con "
+                    f"--fund-gov-quota si applicherebbe il pro-rata al 12,5% sulla quota "
+                    f"governativa (art. 2 c. 1-quater D.L. 138/2011).",
+                )
+
             result.oicr_gains.append(
                 {
-                    "symbol": c.instrument.symbol,
+                    "symbol": sym,
                     "data_chiusura": c.close_date,
                     "descrizione": c.instrument.description,
                     "qty": c.qty,
                     "gain_eur": q2(plus),
-                    "aliquota": str(config.aliquota_sostitutiva),
+                    "quota_gov": quota_gov,
+                    "aliquota": str(aliquota),
+                    "imposta_eur": q2(plus * aliquota),
                     "lettera": "H",
                     "country": country,
                 }
             )
+            result.oicr_imponibile += plus
+            result.oicr_imposta += q2(plus * aliquota)
             continue
 
         result.rows.append(
@@ -196,6 +259,8 @@ def compute_rt(
     # Arrotondamenti finali.
     result.rt21_corrispettivi = q2(result.rt21_corrispettivi)
     result.rt22_costi = q2(result.rt22_costi)
+    result.oicr_imponibile = q2(result.oicr_imponibile)
+    result.oicr_imposta = q2(result.oicr_imposta)
     saldo = result.rt21_corrispettivi - result.rt22_costi
 
     prior = dict(prior_losses or {})

@@ -44,6 +44,7 @@ def build(results: Results, path: str) -> None:
         ["Voce", "Importo"],
         ["Imposta sostitutiva RT (plusvalenze)", _eur(r.rt.rt27_imposta)],
         ["Imposta sostitutiva RM (dividendi/interessi)", _eur(r.rm.tot_imposta_rm)],
+        ["Imposta su plusvalenze OICR (reddito di capitale)", _eur(r.rt.oicr_imposta)],
         [
             ("IVAFE (RW) teorica — NON DOVUTA (≤ 200€)"
              if r.rw.ivafe_non_dovuta else "IVAFE (RW)"),

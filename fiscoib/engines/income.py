@@ -46,6 +46,13 @@ from ..config import FiscoConfig
 from ..money import ZERO, dec, q2
 from ..fx.rates import RatesProvider
 from ..parsing.models import CashTransaction
+from ..prorata import (
+    ALIQUOTA_WHITE_LIST,
+    CODE_PRORATA_ANNI_PARZIALI,
+    CODE_PRORATA_MANCANTE,
+    FundGovQuotas,
+    effective_rate,
+)
 from ..warnings import WarningCollector
 
 DIVIDEND_TYPES = {"Dividends", "Dividend"}
@@ -53,10 +60,6 @@ PIL_TYPES = {"Payment In Lieu Of Dividends", "Payment In Lieu of Dividends"}
 WHT_TYPES = {"Withholding Tax"}
 INTEREST_RECEIVED = {"Broker Interest Received", "Bond Interest Received", "Credit Interest"}
 INTEREST_PAID = {"Broker Interest Paid", "Bond Interest Paid", "Debit Interest"}
-
-# Aliquota ridotta titoli di Stato e assimilati white list (D.P.R. 795/1979;
-# D.Lgs. 239/1996). Non in config perché parametro normativo stabile.
-ALIQUOTA_WHITE_LIST = Decimal("0.125")
 
 # Finestra di compatibilità data stacco / data ritenuta (giorni).
 WHT_DATE_WINDOW = 3
@@ -99,6 +102,10 @@ class DividendRow:
     credito_teorico_eur: Decimal
     codice_reddito: str = "H"
     country_ade: str = ""
+    # Aliquota applicata (26% ordinaria, 12,5% white list, effettiva con prorata).
+    aliquota: Decimal = Decimal("0.26")
+    # Quota media titoli di Stato white list usata per il prorata (solo fondi).
+    quota_gov: Optional[Decimal] = None
 
 
 @dataclass
@@ -146,6 +153,7 @@ def compute_rm(
     config: FiscoConfig,
     warnings: Optional[WarningCollector] = None,
     gov_bonds: Optional[Set[str]] = None,
+    fund_gov_quotas: Optional[FundGovQuotas] = None,
 ) -> RMResult:
     """Calcola il Quadro RM da transazioni cash.
 
@@ -154,9 +162,19 @@ def compute_rm(
     al 12,5% da quelle corporate al 26%. Se manca e sono presenti cedole
     obbligazionarie viene emesso un warning CRITICAL GOVBONDS_DA_CLASSIFICARE
     (una volta per emittente) e si applica il 26%.
+
+    ``fund_gov_quotas``: quote medie di titoli di Stato white list per gli
+    OICR (ETF/fondi), dal file --fund-gov-quota. Le distribuzioni dei fondi
+    sono tassate con l'aliquota effettiva pro-rata (art. 2 c. 1-quater
+    D.L. 138/2011): a parità di tutto il resto, aliquota = 26% - 13,5% x
+    quota_govies. Fondi assenti dal file: 26% pieno + warning (una volta per
+    fondo). Senza file: 26% pieno per tutti i fondi.
     """
     warnings = warnings or WarningCollector()
     res = RMResult(tax_year=config.tax_year)
+
+    # Fondi per cui il warning prorata è già stato emesso (una volta per fondo).
+    seen_prorata: Set[str] = set()
 
     # Paesi a cui non si riesce ad assegnare il codice AdE (warning una volta).
     seen_countries_unknown: Set[str] = set()
@@ -266,7 +284,49 @@ def compute_rm(
         else:  # lordo (default)
             base = gross_eur
 
-        imposta = base * config.aliquota_sostitutiva
+        # Pro-rata titoli di Stato: le distribuzioni di OICR sono risultato
+        # maturato del fondo. Il periodo di maturazione non è noto: si usa la
+        # quota media dell'anno solare di pagamento (vedi fiscoib/prorata.py).
+        aliquota = config.aliquota_sostitutiva
+        quota_gov: Optional[Decimal] = None
+        inst = sample.instrument
+        if inst is not None and inst.is_fund:
+            info = (
+                fund_gov_quotas.average_quota(
+                    (inst.isin, inst.symbol, inst.conid),
+                    date(pay_date.year, 1, 1),
+                    date(pay_date.year, 12, 31),
+                )
+                if fund_gov_quotas
+                else None
+            )
+            if info is not None:
+                quota_gov = info.quota
+                aliquota = effective_rate(config.aliquota_sostitutiva, info.quota)
+                if info.missing_years and inst.symbol not in seen_prorata:
+                    seen_prorata.add(inst.symbol)
+                    warnings.warn(
+                        CODE_PRORATA_ANNI_PARZIALI,
+                        f"Dati prorata parziali per {inst.symbol}: anni {list(info.missing_years)} "
+                        f"assenti dal file --fund-gov-quota, conteggiati con quota 0 "
+                        f"(aliquota piena su quella frazione): controllare il dato del gestore.",
+                    )
+            elif inst.symbol not in seen_prorata:
+                seen_prorata.add(inst.symbol)
+                note = (
+                    "il file --fund-gov-quota non contiene l'identificativo"
+                    if fund_gov_quotas
+                    else "manca il file --fund-gov-quota"
+                )
+                warnings.warn(
+                    CODE_PRORATA_MANCANTE,
+                    f"Distribuzione da fondo {inst.symbol}: {note} se il fondo contiene titoli di "
+                    f"Stato white list. Applicata l'aliquota piena 26% (scelta prudente): con "
+                    f"--fund-gov-quota si applicherebbe il pro-rata al 12,5% sulla quota "
+                    f"governativa (art. 2 c. 1-quater D.L. 138/2011).",
+                )
+
+        imposta = base * aliquota
         credito_teorico = min(wht_eur, imposta)
 
         country_iso = _country_from(sample)
@@ -286,6 +346,8 @@ def compute_rm(
                 credito_teorico_eur=q2(credito_teorico),
                 codice_reddito="C" if key in pil_groups else "H",
                 country_ade=country_ade_of(country_iso),
+                aliquota=aliquota,
+                quota_gov=quota_gov,
             )
         )
         res.tot_base_dividendi += base

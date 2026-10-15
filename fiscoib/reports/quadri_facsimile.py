@@ -80,10 +80,38 @@ def render(results: Results) -> str:
                 + f"{i.description[:20]:<22}{i.country:<6}{str(country_ade)[:4]:>4}"
                 + f"{i.base_eur:>14,.2f}{i.imposta_eur:>14,.2f}{tag}"
             )
+    if r.rt.oicr_gains:
+        out.append("  Plusvalenze su quote OICR/ETF (reddito di capitale, codice reddito H):")
+        out.append("    " + f"{'Titolo':<14}{'Stato':<6}{'Base EUR':>14}{'Quota gov':>10}{'Alq.eff.':>10}{'Imposta EUR':>14}")
+        for g in r.rt.oicr_gains:
+            qg = _g(g, "quota_gov", None)
+            qg_s = f"{float(qg) * 100:.1f}%" if qg is not None else "-"
+            ali = _g(g, "aliquota", "0.26")
+            out.append(
+                "    "
+                + f"{str(_g(g, 'symbol', ''))[:13]:<14}{str(_g(g, 'country', '')):<6}"
+                + f"{_g(g, 'gain_eur', 0):>14,.2f}{qg_s:>10}"
+                + f"{float(ali) * 100:>9.2f}%{_g(g, 'imposta_eur', 0):>14,.2f}"
+            )
+        out.append(
+            f"    {'TOTALE OICR':<20}{r.rt.oicr_imponibile:>14,.2f}"
+            f"{'':>10}{'':>10}{r.rt.oicr_imposta:>14,.2f}"
+        )
+        if any(_g(g, "quota_gov", None) is not None for g in r.rt.oicr_gains):
+            out.append(
+                "    (pro-rata titoli di Stato: aliquota effettiva = 26% - 13,5% x quota "
+                "govies white list, art. 2 c. 1-quater D.L. 138/2011)"
+            )
     out.append("")
     out.append(f"  RM31 col.3  Totale base imponibile dividendi .... € {r.rm.tot_base_dividendi:>14,.2f}")
     out.append(f"              Totale base imponibile interessi .... € {r.rm.tot_base_interessi:>14,.2f}")
+    if r.rt.oicr_gains:
+        out.append(f"              Totale base plusvalenze OICR ........ € {r.rt.oicr_imponibile:>14,.2f}")
     out.append(f"  RM31 col.8  Imposta sostitutiva RM (26%) ....... € {r.rm.tot_imposta_rm:>14,.2f}")
+    if r.rt.oicr_gains:
+        out.append(f"              Imposta su plusvalenze OICR ........ € {r.rt.oicr_imposta:>14,.2f}")
+        tot_f24 = r.rm.tot_imposta_rm + r.rt.oicr_imposta
+        out.append(f"              Totale F24 codice 1242 ............. € {tot_f24:>14,.2f}")
     if r.rm.tot_wht_estera_eur > 0:
         out.append(f"  (info) Ritenute estere subite .................. € {r.rm.tot_wht_estera_eur:>14,.2f}")
         out.append(f"  (info) Credito teorico da eventuale rimborso ... € {r.rm.tot_credito_teorico_eur:>14,.2f}")
@@ -138,6 +166,8 @@ def render(results: Results) -> str:
     out.append(_line("="))
     out.append(f"  Imposta sostitutiva RT (plusvalenze) ........... € {r.rt.rt27_imposta:>14,.2f}")
     out.append(f"  Imposta sostitutiva RM (dividendi/interessi) ... € {r.rm.tot_imposta_rm:>14,.2f}")
+    if r.rt.oicr_gains:
+        out.append(f"  Imposta su plusvalenze OICR (reddito capitale) € {r.rt.oicr_imposta:>14,.2f}")
     if r.rw.ivafe_non_dovuta:
         out.append(f"  IVAFE (RW) teorica € {r.rw.tot_ivafe_eur:,.2f} -> 0,00 (≤ 200€, non dovuta)")
     else:
