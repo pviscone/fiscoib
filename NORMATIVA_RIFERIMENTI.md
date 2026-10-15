@@ -16,7 +16,9 @@ Fonti solo ufficiali: Agenzia delle Entrate (AdE), Normattiva, Gazzetta Ufficial
 | Scheda AdE sul Quadro RT | Schede informative AdE | https://www.agenziaentrate.gov.it/portale/-/4-quadro-rt-45-plusvalenze-di-natura-finanziaria |
 | Quadro RT nella precompilata (codici e righi) | Precompilata AdE | https://infoprecompilata.agenziaentrate.gov.it/portale/quadro-rt |
 
-Nota interpretativa aperta: per le azioni il dibattito LIFO vs costo medio ponderato (art. 68 c. 6) è richiamato dalle istruzioni del Quadro RT — v. sezione decisioni del README.
+Nota interpretativa aperta: per le azioni il dibattito LIFO vs costo medio ponderato
+(art. 68 c. 6) è richiamato dalle istruzioni del Quadro RT; il programma adotta il LIFO —
+v. la nota nella sezione 2 di `GUIDA_TASSAZIONE.md`.
 
 ## 2. Dividendi e interessi — redditi di capitale (Quadro RM)
 
