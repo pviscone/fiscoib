@@ -323,7 +323,8 @@ def compute_rm(
                     f"Distribuzione da fondo {inst.symbol}: {note} se il fondo contiene titoli di "
                     f"Stato white list. Applicata l'aliquota piena 26% (scelta prudente): con "
                     f"--fund-gov-quota si applicherebbe il pro-rata al 12,5% sulla quota "
-                    f"governativa (art. 2 c. 1-quater D.L. 138/2011).",
+                    f"governativa (art. 2 c. 1-quater D.L. 138/2011). "
+                    f"Template: python -m fiscoib.build_inputs.",
                 )
 
         imposta = base * aliquota
@@ -405,7 +406,19 @@ def compute_rm(
                             f"Cedole da '{issuer}' (Bond Interest) SENZA lista "
                             f"'--gov-bonds': classificate al 26% come corporate. "
                             f"Passare --gov-bonds file.json con la lista degli ISIN/simboli "
-                            f"dei titoli di Stato white list (aliquota 12,5%).",
+                            f"dei titoli di Stato white list (aliquota 12,5%). "
+                            f"Template: python -m fiscoib.build_inputs.",
+                        )
+                    elif gov_bonds is not None and issuer not in seen_gov_unknown:
+                        # Lista passata ma emittente assente: 26% prudente, ma se è
+                        # un governativo dimenticato l'utente perderebbe il 12,5%.
+                        seen_gov_unknown.add(issuer)
+                        warnings.warn(
+                            "GOVBOND_NON_IN_LISTA",
+                            f"Cedole da '{issuer}' NON presenti nella lista --gov-bonds: "
+                            f"classificate al 26% come corporate. Se si tratta di un "
+                            f"titolo di Stato white list (descrizione: '{(c.description or '')[:50]}'), "
+                            f"aggiungere l'ISIN al file e rieseguire.",
                         )
 
             imposta = base_eur * aliquota

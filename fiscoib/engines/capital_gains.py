@@ -188,7 +188,8 @@ def compute_rt(
                     f"Plusvalenza su ETF/fondo {sym}: {note} se il fondo contiene titoli di "
                     f"Stato white list. Applicata l'aliquota piena 26% (scelta prudente): con "
                     f"--fund-gov-quota si applicherebbe il pro-rata al 12,5% sulla quota "
-                    f"governativa (art. 2 c. 1-quater D.L. 138/2011).",
+                    f"governativa (art. 2 c. 1-quater D.L. 138/2011). "
+                    f"Template: python -m fiscoib.build_inputs.",
                 )
 
             result.oicr_gains.append(

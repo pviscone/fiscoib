@@ -190,8 +190,10 @@ entrambe "risultati maturati" dell'OICR. La componente corporate (e i govies *no
 list, es. emergenti fuori lista) resta sempre al 26%.
 
 **Come fornire il dato al programma.** La quota media non è nello statement IBKR:
-è pubblicata dal gestore sul proprio portale fiscale (es. iShares, Vanguard). Si passa
-un file JSON con `--fund-gov-quota`:
+è pubblicata dal gestore sul proprio portale fiscale (es. iShares, Vanguard). Il
+comando `python -m fiscoib.build_inputs estratto.xml --anno 2024` genera lo scheletro
+`fund_gov_quota.bozza.json` con tutti gli ETF/fondi rilevati nello statement: occorre
+solo riempire le quote. Il file si passa poi con `--fund-gov-quota`:
 
 ```json
 {

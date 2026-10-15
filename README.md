@@ -124,6 +124,27 @@ Le opzioni `--frontiera`, `--ivafe-cfd`, `--ivafe-otc`, `--cfd-divadj`, `--pil`
 corrispondono ai casi fiscalmente incerti: la spiegazione di ogni scelta è in
 [`GUIDA_TASSAZIONE.md`](GUIDA_TASSAZIONE.md), sezione 6.
 
+### Generazione automatica dei file di input
+
+Il comando
+
+```bash
+python -m fiscoib.build_inputs ib_2024.xml --anno 2024 --out ./out
+```
+
+legge gli statement e produce:
+
+| File | Contenuto | Passo manuale residuo |
+|---|---|---|
+| `gov_bonds.bozza.json` | ISIN dei governativi **white list probabili** (euristica offline: token sovrani tipo `BTPS`, `TREASURY`, `BUND` + prefisso ISIN paese whitelist) | Revisiona: controlla perché si buchi l'euristica (a video i gruppi `[paese?]` emergenti e `[corp?]` dubbi) e aggiungi i governativi non riconosciuti; poi rinomina in `gov_bonds.json` |
+| `fund_gov_quota.bozza.json` | Mappa ISIN → `0.0` dei soli ETF **con obbligazioni** (euristica sul nome; gli equity-puri tipo MSCI World sono esclusi e mostrati a video — il pro-rata su di loro è sempre nullo) | Compilare le quote con la media govies dal portale fiscale del gestore (0.0 = 26% pieno, mai meno imposta del dovuto) |
+| `overrides.json` | Cambi medi mensili Banca d'Italia dell'anno per le valute presenti | Nessuno: pronto per `--overrides` |
+
+I primi due sono volutamente "bozza": l'euristica sui bond favorisce la prudenza (un
+corporate riconosciuto per errore come govy farebbe pagare meno imposta del dovuto) e
+auto-azzerrare le quote non mostrerebbe il dato mancante. I warning
+`GOVBONDS_DA_CLASSIFICARE` e `PRORATA_DA_CLASSIFICARE` suggeriscono questo comando.
+
 ## Come leggere l'output
 
 Nella cartella `--out` vengono creati:
@@ -223,6 +244,7 @@ Principi di progetto:
 | Minusvalenze pregresse (4 anni, oldest-first) e riporto | `engines/capital_gains.py` · `compute_rt` |
 | **Quadro RM**: dividendi lordo/netto frontiera; titoli di Stato 12,5% (codice A) | `engines/income.py` · `compute_rm` |
 | **Pro-rata titoli di Stato** sugli OICR: aliquota effettiva 26% − 13,5%×quota govies su gain ETF e distribuzioni (media pesata sui giorni di possesso) | `prorata.py` · `FundGovQuotas`; applicato in `capital_gains.compute_rt` e `income.compute_rm` |
+| Generazione template dei JSON di input (`gov_bonds`, `fund_gov_quota`, `overrides`) dagli statement; classificazione euristica governativi/corporate | `fiscoib.build_inputs` · `collect_bond_issuers`, `classify_bonds`, `collect_funds`, `write_overrides` |
 | Ritenute estere (match ±3 gg) e credito teorico | `engines/income.py` · `compute_rm` |
 | Codici Stato estero numerici AdE | `ade_tables.py` · `iso2_to_ade` |
 | **Quadro RW / IVAFE**: valorizzazione, pro-rata giorni, codici bene, soglia 200 € | `engines/monitoring.py` · `compute_rw` |
@@ -240,9 +262,10 @@ Il dettaglio normativo dietro ogni regola è in
 python -m pytest -q
 ```
 
-I test (70) verificano i casi limite contro valori calcolati a mano: LIFO multi-lotto e
+I test (83) verificano i casi limite contro valori calcolati a mano: LIFO multi-lotto e
 short, costo medio ponderato OICR, separazione plus OICR / minus in RT, pro-rata titoli
 di Stato (media pesata sui giorni, anni parziali, dato mancante con default prudente),
-dividendo con ritenuta (lordo/netto), IVAFE pro-rata e soglia 200 €, titolo comprato e
-venduto nello stesso anno, cambi con fallback su giorni festivi, validazioni d'ingresso
-e dedup.
+generazione dei template di input (bond/ETF rilevati, euristica governativi/corporate,
+override mensili con fetch fallback), dividendo con ritenuta (lordo/netto), IVAFE
+pro-rata e soglia 200 €, titolo comprato e venduto nello stesso anno, cambi con
+fallback su giorni festivi, validazioni d'ingresso e dedup.

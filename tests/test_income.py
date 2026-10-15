@@ -92,6 +92,28 @@ def test_match_gov_per_simbolo_e_non_solo_isin(rates):
     assert rm.interests[0].codice_reddito == "A"
 
 
+def test_emittente_assente_dalla_lista_warn_e_26(rates):
+    """Lista --gov-bonds passata ma emittente non incluso: 26% prudente + WARN
+    (una volta per emittente) per verificare governativi dimenticati."""
+    b = bond(symbol="BTPS", isin="IT0005425233")
+    txs = [
+        cash_tx(b, "2024-11-16", "Bond Interest Received", 100),
+        cash_tx(b, "2024-11-16", "Bond Interest Received", 50),
+    ]
+    cfg = FiscoConfig(tax_year=2024)
+    warnings = WarningCollector()
+    rm = compute_rm(txs, rates, cfg, warnings=warnings,
+                    gov_bonds={"ALTRO_TITOLO_DI_STATO"})
+    assert all(r.codice_reddito == "I" for r in rm.interests)
+    assert all(r.aliquota == Decimal("0.26") for r in rm.interests)
+    warn = [w for w in warnings if w.code == "GOVBOND_NON_IN_LISTA"]
+    assert len(warn) == 1 and warn[0].level == "WARN"
+    assert "IT0005425233" not in warn[0].message  # identificato per simbolo
+    assert "BTPS" in warn[0].message
+    critic = [w for w in warnings if w.code == "GOVBONDS_DA_CLASSIFICARE"]
+    assert critic == []
+
+
 def test_cedola_corporate_26_codice_i_e_critical_senza_govbonds(rates):
     b = bond(isin="IT9999999999")
     txs = [
